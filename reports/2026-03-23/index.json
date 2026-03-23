@@ -1,0 +1,15 @@
+{
+  "date": "2026-03-23",
+  "papers": [
+    {
+      "file": "paper-1.md",
+      "title": "Channel-Adaptive Edge AI: Maximizing Inference Throughput by Adapting Computational Complexity to Channel States",
+      "tags": ["Edge AI", "Wireless", "Inference Optimization"]
+    },
+    {
+      "file": "paper-2.md",
+      "title": "TT-SEAL: TTD-Aware Selective Encryption for Adversarially-Robust and Low-Latency Edge AI",
+      "tags": ["Edge AI", "Security", "Encryption", "TTD"]
+    }
+  ]
+}
