@@ -1,0 +1,45 @@
+{
+  "date": "2026-03-25",
+  "papers": [
+    {
+      "id": "paper-1",
+      "category": "Edge AI",
+      "title": "Channel-Adaptive Edge AI: Maximizing Inference Throughput by Adapting Computational Complexity to Channel States",
+      "source": "arXiv (cs.IT, cs.AI, cs.LG, cs.NI)",
+      "date": "2026-03-03",
+      "authors": ["Jierui Zhang", "Jianhao Huang", "Kaibin Huang"],
+      "link": "https://arxiv.org/abs/2603.03146v1",
+      "credibility": "High",
+      "file": "paper-1-edge-ai.md"
+    },
+    {
+      "id": "paper-2",
+      "category": "Edge AI Security",
+      "title": "TT-SEAL: TTD-Aware Selective Encryption for Adversarially-Robust and Low-Latency Edge AI",
+      "source": "arXiv (cs.CR) / Design Automation Conference 2026",
+      "date": "2026-02",
+      "authors": ["Kyeongpil Min", "Sangmin Jeon", "Jae-Jin Lee", "Woojoo Lee"],
+      "link": "https://arxiv.org/html/2602.22238v1",
+      "credibility": "High",
+      "file": "paper-2-edge-ai-security.md"
+    },
+    {
+      "id": "paper-3",
+      "category": "Embedded Systems Security",
+      "title": "IoTBec: An Accurate and Efficient Recurring Vulnerability Detection Framework for Black Box IoT Devices",
+      "source": "NDSS Symposium 2026",
+      "date": "2026",
+      "authors": ["Haoran Yang", "Jiaming Guo", "Shuangning Yang", "Guoli Zhao", "Qingqi Liu", "Chi Zhang", "Zhenlu Tan", "Lixiao Shan", "Qihang Zhou", "Mengting Zhou", "Jianwei Tai", "Xiaoqi Jia"],
+      "link": "https://www.ndss-symposium.org/ndss-paper/iotbec-an-accurate-and-efficient-recurring-vulnerability-detection-framework-for-black-box-iot-devices/",
+      "credibility": "High",
+      "file": "paper-3-embedded-security.md"
+    }
+  ],
+  "searchQueries": [
+    "Edge AI OR Edge Intelligence OR Edge Computing AI 2025 2026 arXiv IEEE ACM",
+    "Edge AI security OR Edge AI privacy OR federated learning security 2025 2026 arXiv IEEE ACM",
+    "Embedded Systems Security OR 嵌入式系統資安 OR embedded security IoT 2025 2026 IEEE ACM"
+  ],
+  "sources": ["arXiv", "NDSS Symposium"],
+  "generatedAt": "2026-03-25T00:00:00+08:00"
+}
