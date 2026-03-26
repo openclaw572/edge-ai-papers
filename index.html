@@ -8,29 +8,30 @@
 </head>
 <body>
     <div class="container">
-        <!-- 側欄：日期分類 -->
         <aside class="sidebar">
             <h1>📚 Edge AI 論文</h1>
+
+            <div class="category-switch" id="category-switch">
+                <button class="category-btn active" data-category="review">Review Paper</button>
+                <button class="category-btn" data-category="general">General Paper</button>
+            </div>
+
+            <p id="category-hint" class="category-hint">請先選擇分類，再選擇日期</p>
+
             <nav id="date-nav">
-                <!-- 日期列表會由 JS 動態載入 -->
+                <!-- 日期列表由 JS 動態載入 -->
             </nav>
         </aside>
 
-        <!-- 主內容區 -->
         <main class="main-content">
             <header>
-                <h2 id="page-title">選擇日期查看論文報告</h2>
+                <h2 id="page-title">先選擇分類，再選擇日期查看報告</h2>
             </header>
-            
+
             <div id="content-area">
-                <!-- 內容會由 JS 動態載入 -->
                 <div class="welcome-message">
-                    <p>👈 請從側欄選擇一個日期</p>
-                    <p>每個日期包含兩篇論文報告：</p>
-                    <ul>
-                        <li>Edge AI 相關論文</li>
-                        <li>Edge AI 安全相關論文</li>
-                    </ul>
+                    <p>👈 請先在側欄選擇論文分類（Review / General），再選擇日期。</p>
+                    <p>每個日期會顯示該分類底下的論文報告。</p>
                 </div>
             </div>
         </main>

@@ -42,6 +42,39 @@ body {
     gap: 0.5rem;
 }
 
+.category-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.category-btn {
+    border: 1px solid #4b6277;
+    background: #34495e;
+    color: #ecf0f1;
+    border-radius: 6px;
+    padding: 0.55rem 0.5rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.category-btn:hover {
+    background: #3c556e;
+}
+
+.category-btn.active {
+    background: #1abc9c;
+    border-color: #1abc9c;
+    color: #fff;
+}
+
+.category-hint {
+    font-size: 0.82rem;
+    color: #95a5a6;
+    margin-bottom: 1rem;
+}
+
 .date-group {
     margin-bottom: 1.5rem;
 }
