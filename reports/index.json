@@ -1,6 +1,26 @@
 {
-  "lastUpdated": "2026-03-25",
+  "lastUpdated": "2026-03-29",
   "dates": [
+    {
+      "date": "2026-03-29",
+      "path": "2026-03-29/index.json",
+      "paperCount": 3,
+      "paperType": "review",
+      "papers": [
+        {
+          "title": "Edge Artificial Intelligence: A Systematic Review of Evolution, Taxonomic Frameworks, and Future Horizons",
+          "tags": ["Edge AI", "Review Paper", "Taxonomy", "Systematic Review"]
+        },
+        {
+          "title": "On the Security and Privacy of Federated Learning: A Survey with Attacks, Defenses, Frameworks, Applications, and Future Directions",
+          "tags": ["Edge AI Security", "Review Paper", "Federated Learning", "Privacy", "Security"]
+        },
+        {
+          "title": "Advanced Hardware Security on Embedded Processors: A 2026 Systematic Review",
+          "tags": ["Embedded Systems Security", "Review Paper", "Hardware Security", "Systematic Review"]
+        }
+      ]
+    },
     {
       "date": "2026-03-25",
       "path": "2026-03-25/index.json",

@@ -1,0 +1,50 @@
+{
+  "date": "2026-03-29",
+  "papers": [
+    {
+      "id": "paper-1",
+      "category": "Edge AI",
+      "title": "Edge Artificial Intelligence: A Systematic Review of Evolution, Taxonomic Frameworks, and Future Horizons",
+      "source": "arXiv (cs.AI, cs.LG, cs.NI)",
+      "date": "2025",
+      "authors": ["Systematic Review Team"],
+      "link": "https://arxiv.org/html/2510.01439v1",
+      "credibility": "High",
+      "file": "paper-1-edge-ai-review.md",
+      "type": "REVIEW PAPER"
+    },
+    {
+      "id": "paper-2",
+      "category": "Edge AI Security",
+      "title": "On the Security and Privacy of Federated Learning: A Survey with Attacks, Defenses, Frameworks, Applications, and Future Directions",
+      "source": "arXiv (cs.CR) / Information Fusion (2025)",
+      "date": "2025",
+      "authors": ["Daniel M. Jimenez-Gutierrez", "Yelizaveta Falkouskaya", "José L. Hernandez-Ramos", "Aris Anagnostopoulos", "Ioannis Chatzigiannakis", "Andrea Vitaletti"],
+      "link": "https://arxiv.org/abs/2508.13730",
+      "credibility": "High",
+      "file": "paper-2-edge-ai-security-review.md",
+      "type": "REVIEW PAPER"
+    },
+    {
+      "id": "paper-3",
+      "category": "Embedded Systems Security",
+      "title": "Advanced Hardware Security on Embedded Processors: A 2026 Systematic Review",
+      "source": "Electronics 2026, 15(5), 1135 / MDPI",
+      "date": "2026-03-09",
+      "authors": ["Ali Kia", "Aaron W. Storey", "Masudul Imtiaz"],
+      "link": "https://www.mdpi.com/2079-9292/15/5/1135",
+      "credibility": "High",
+      "file": "paper-3-embedded-security-review.md",
+      "type": "REVIEW PAPER"
+    }
+  ],
+  "searchQueries": [
+    "Edge AI review survey paper 2025 2026 arXiv IEEE ACM",
+    "Edge AI security review survey paper 2025 2026 federated learning privacy",
+    "Embedded Systems Security review survey paper 2026 IoT security hardware"
+  ],
+  "sources": ["arXiv", "MDPI Electronics", "Information Fusion"],
+  "generatedAt": "2026-03-29T00:00:00+08:00",
+  "mode": "REVIEW PAPER",
+  "notes": "Three NEW review papers selected (not used in prior reports): 1 Edge AI review, 1 Edge AI Security review (FL security), 1 Embedded Systems Security review. All reports in Traditional Chinese with detailed taxonomy, method explanations, pros/cons, mainstream methods, extension directions, figure screenshots, and credibility assessments."
+}
