@@ -1,0 +1,22 @@
+{
+  "date": "2026-04-01",
+  "paperCount": 3,
+  "paperType": "review",
+  "papers": [
+    {
+      "title": "Edge artificial intelligence: A comprehensive survey and future directions",
+      "path": "paper-1-edge-ai-comprehensive-survey.md",
+      "tags": ["Edge AI", "Review Paper", "Systematic Review", "Taxonomy", "Model Compression", "Federated Learning"]
+    },
+    {
+      "title": "Security and Privacy in Edge AI: A Comprehensive Survey on Threats, Attacks, and Defenses",
+      "path": "paper-2-edge-ai-security-threats-survey.md",
+      "tags": ["Edge AI Security", "Review Paper", "Threats", "Attacks", "Defenses", "Privacy", "Adversarial Examples"]
+    },
+    {
+      "title": "Embedded Systems Security: A Comprehensive Survey on Threats, Architectures, and Defense Strategies",
+      "path": "paper-3-embedded-systems-security-review.md",
+      "tags": ["Embedded Systems Security", "Review Paper", "Hardware Security", "TEE", "Secure Boot", "Post-Quantum Cryptography"]
+    }
+  ]
+}
