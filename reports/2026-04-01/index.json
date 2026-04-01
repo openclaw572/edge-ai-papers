@@ -4,19 +4,19 @@
   "paperType": "review",
   "papers": [
     {
-      "title": "Edge artificial intelligence: A comprehensive survey and future directions",
-      "path": "paper-1-edge-ai-comprehensive-survey.md",
-      "tags": ["Edge AI", "Review Paper", "Systematic Review", "Taxonomy", "Model Compression", "Federated Learning"]
+      "title": "Empowering Edge Intelligence: A Comprehensive Survey on On-Device AI Models",
+      "path": "paper-1-edge-ai-on-device-models.md",
+      "tags": ["Edge AI", "Review Paper", "On-Device AI", "Model Compression", "Systematic Review"]
     },
     {
-      "title": "Security and Privacy in Edge AI: A Comprehensive Survey on Threats, Attacks, and Defenses",
-      "path": "paper-2-edge-ai-security-threats-survey.md",
-      "tags": ["Edge AI Security", "Review Paper", "Threats", "Attacks", "Defenses", "Privacy", "Adversarial Examples"]
+      "title": "SoK: Towards Security and Safety of Edge AI",
+      "path": "paper-2-edge-ai-security-sok.md",
+      "tags": ["Edge AI Security", "Review Paper", "Safety", "Security", "Systematization of Knowledge"]
     },
     {
-      "title": "Embedded Systems Security: A Comprehensive Survey on Threats, Architectures, and Defense Strategies",
-      "path": "paper-3-embedded-systems-security-review.md",
-      "tags": ["Embedded Systems Security", "Review Paper", "Hardware Security", "TEE", "Secure Boot", "Post-Quantum Cryptography"]
+      "title": "Advanced Hardware Security on Embedded Processors: A 2026 Systematic Review",
+      "path": "paper-3-embedded-hardware-security-2026.md",
+      "tags": ["Embedded Systems Security", "Review Paper", "Hardware Security", "Post-Quantum", "PUF", "TEE"]
     }
   ]
 }

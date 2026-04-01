@@ -8,16 +8,16 @@
       "paperType": "review",
       "papers": [
         {
-          "title": "Edge artificial intelligence: A comprehensive survey and future directions",
-          "tags": ["Edge AI", "Review Paper", "Systematic Review", "Taxonomy"]
+          "title": "Empowering Edge Intelligence: A Comprehensive Survey on On-Device AI Models",
+          "tags": ["Edge AI", "Review Paper", "On-Device AI", "Model Compression", "Systematic Review"]
         },
         {
-          "title": "Security and Privacy in Edge AI: A Comprehensive Survey on Threats, Attacks, and Defenses",
-          "tags": ["Edge AI Security", "Review Paper", "Threats", "Attacks", "Defenses"]
+          "title": "SoK: Towards Security and Safety of Edge AI",
+          "tags": ["Edge AI Security", "Review Paper", "Safety", "Security", "Systematization of Knowledge"]
         },
         {
-          "title": "Embedded Systems Security: A Comprehensive Survey on Threats, Architectures, and Defense Strategies",
-          "tags": ["Embedded Systems Security", "Review Paper", "Hardware Security", "TEE", "Post-Quantum"]
+          "title": "Advanced Hardware Security on Embedded Processors: A 2026 Systematic Review",
+          "tags": ["Embedded Systems Security", "Review Paper", "Hardware Security", "Post-Quantum", "PUF", "TEE"]
         }
       ]
     },
