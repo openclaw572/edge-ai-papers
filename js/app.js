@@ -182,7 +182,7 @@ function renderPaperSelector(dateReports) {
 async function loadPaper(date, paper, paperIndex) {
     try {
         const fallbackName = `paper-${paperIndex + 1}.md`;
-        const fileName = paper?.file || fallbackName;
+        const fileName = paper?.file || paper?.path || fallbackName;
 
         const response = await fetch(`reports/${date}/${fileName}`);
         if (!response.ok) throw new Error('Failed to load paper');
