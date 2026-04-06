@@ -1,8 +1,28 @@
 {
-  "lastUpdated": "2026-04-01",
+  "lastUpdated": "2026-04-06",
   "dates": [
     {
-      "date": "2026-04-01",
+      "date": "2026-04-06",
+      "path": "2026-04-06/index.json",
+      "paperCount": 3,
+      "paperType": "review",
+      "papers": [
+        {
+          "title": "Cognitive Edge Computing: A Comprehensive Survey on Optimizing Large Models and AI Agents for Pervasive Deployment",
+          "tags": ["Edge AI", "Review Paper", "LLM", "Agent", "Edge Deployment"]
+        },
+        {
+          "title": "A Survey on Industrial Internet of Things Security: Requirements, Attacks, AI-Based Solutions, and Edge Computing Opportunities",
+          "tags": ["Edge AI Security", "Review Paper", "IIoT", "AI-based Security", "Edge/Fog"]
+        },
+        {
+          "title": "A survey of cyber threat intelligence in embedded system driven security for mobile health systems",
+          "tags": ["Embedded Systems Security", "Review Paper", "CTI", "mHealth", "SpringerOpen"]
+        }
+      ]
+    },
+    {
+      "date": "2026-04-01", 
       "path": "2026-04-01/index.json",
       "paperCount": 3,
       "paperType": "review",
