@@ -310,6 +310,18 @@ body {
     margin: 1rem 0;
 }
 
+/* 圖片樣式 */
+.report-content img {
+    display: block;
+    max-width: min(100%, 720px);
+    width: auto;
+    height: auto;
+    margin: 0.75rem auto 1rem;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
 /* 連結樣式 */
 .report-content a {
     color: #1abc9c;
