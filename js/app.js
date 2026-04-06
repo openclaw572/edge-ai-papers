@@ -207,23 +207,89 @@ async function loadPaper(date, paper, paperIndex) {
 
 // 簡易 Markdown 解析器
 function parseMarkdown(md) {
-    let html = md;
+    const lines = md.split('\n');
+    const out = [];
+    let inOl = false;
+    let inUl = false;
 
-    html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-    html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-    html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+    const closeLists = () => {
+        if (inOl) {
+            out.push('</ol>');
+            inOl = false;
+        }
+        if (inUl) {
+            out.push('</ul>');
+            inUl = false;
+        }
+    };
 
-    html = html.replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>');
+    const inline = (text) => text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>');
 
-    html = html.replace(/^\- (.*$)/gim, '<li>$1</li>');
-    html = html.replace(/^\* (.*$)/gim, '<li>$1</li>');
-    html = html.replace(/^\d+\. (.*$)/gim, '<li>$1</li>');
+    for (const raw of lines) {
+        const line = raw.trimEnd();
 
-    html = html.replace(/\n\n/gim, '</p><p>');
-    html = html.replace(/\[(.*)\]\((.*)\)/gim, '<a href="$2">$1</a>');
+        if (!line.trim()) {
+            closeLists();
+            continue;
+        }
 
-    html = `<div class="report-content">${html}</div>`;
-    return html;
+        const h3 = line.match(/^###\s+(.*)$/);
+        if (h3) {
+            closeLists();
+            out.push(`<h3>${inline(h3[1])}</h3>`);
+            continue;
+        }
+
+        const h2 = line.match(/^##\s+(.*)$/);
+        if (h2) {
+            closeLists();
+            out.push(`<h2>${inline(h2[1])}</h2>`);
+            continue;
+        }
+
+        const h1 = line.match(/^#\s+(.*)$/);
+        if (h1) {
+            closeLists();
+            out.push(`<h1>${inline(h1[1])}</h1>`);
+            continue;
+        }
+
+        const ol = line.match(/^\s*\d+\.\s+(.*)$/);
+        if (ol) {
+            if (inUl) {
+                out.push('</ul>');
+                inUl = false;
+            }
+            if (!inOl) {
+                out.push('<ol>');
+                inOl = true;
+            }
+            out.push(`<li>${inline(ol[1])}</li>`);
+            continue;
+        }
+
+        const ul = line.match(/^\s*[-*]\s+(.*)$/);
+        if (ul) {
+            if (inOl) {
+                out.push('</ol>');
+                inOl = false;
+            }
+            if (!inUl) {
+                out.push('<ul>');
+                inUl = true;
+            }
+            out.push(`<li>${inline(ul[1])}</li>`);
+            continue;
+        }
+
+        closeLists();
+        out.push(`<p>${inline(line)}</p>`);
+    }
+
+    closeLists();
+    return `<div class="report-content">${out.join('')}</div>`;
 }
 
 // 初始化
