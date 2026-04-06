@@ -1,0 +1,117 @@
+請你扮演該領域的研究專家，協助我深入理解以下這篇 review paper（survey paper）。
+
+這篇論文的目的是整理某個研究領域，而不是提出單一新方法。
+請用清楚、有結構、容易理解的方式說明整篇論文。
+
+請依照以下格式分析：
+
+1. 論文基本資訊
+- 論文標題：
+- 作者：
+- 發表年份：
+- 發表會議 / 期刊：
+- 研究領域：
+
+2. 這篇 Review Paper 在整理什麼領域？
+例如：
+- Edge AI security
+- Firmware security
+- Anomaly detection
+- IoT security
+- Embedded AI
+- Machine learning robustness
+
+請用一句話描述。
+
+3. 為什麼這個領域重要？
+請說明：
+- 這個領域解決什麼問題
+- 為什麼現在需要研究它
+- 目前有哪些挑戰
+
+4. 這篇 paper 的整體分類方式（Taxonomy）
+
+請整理：
+
+Category 1:
+- 方法名稱
+- 核心概念
+- 代表論文
+
+Category 2:
+- 方法名稱
+- 核心概念
+- 代表論文
+
+Category 3:
+- 方法名稱
+- 核心概念
+- 代表論文
+
+請用清楚的分類方式呈現。
+
+5. 各類方法的比較
+
+請用表格：
+
+方法類型 | 核心技術 | 優點 | 缺點 | 適用場景
+---------|----------|------|------|---------
+
+6. 這個領域目前的主流技術有哪些？
+
+例如：
+
+- Rule-based
+- Machine learning
+- Deep learning
+- Reinforcement learning
+- Signature detection
+- Behavioral detection
+
+請說明：
+
+- 哪些是主流
+- 哪些是新興
+- 哪些正在被淘汰
+
+7. 目前最重要的技術挑戰（Challenges）
+
+例如：
+
+- 計算資源不足
+- latency
+- robustness
+- false positive
+- scalability
+- security
+
+請列出 3–7 個。
+
+8. 未來研究方向（Future Research Directions）
+
+請整理：
+
+- Short-term research direction
+- Long-term research direction
+
+例如：
+
+- Lightweight AI
+- Edge deployment
+- Federated learning
+- AI robustness
+- Autonomous response (AI agent)
+
+9. 如果我要做研究，這篇 review paper 給我的啟發是什麼？
+
+請列出：
+
+- 可能的研究題目
+- 研究 gap
+- 可以改進的地方
+
+10. 用 5 句話摘要整篇 review paper
+
+---
+
+以下是論文內容：
