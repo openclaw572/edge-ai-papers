@@ -188,7 +188,7 @@ async function loadPaper(date, paper, paperIndex) {
         if (!response.ok) throw new Error('Failed to load paper');
 
         const markdown = await response.text();
-        const html = parseMarkdown(markdown);
+        const html = parseMarkdown(markdown, `reports/${date}`);
 
         document.getElementById('page-title').textContent = '📄 論文報告';
         document.getElementById('content-area').innerHTML = html;
@@ -206,13 +206,23 @@ async function loadPaper(date, paper, paperIndex) {
 }
 
 // Markdown 解析器（優先使用 marked/GFM，盡量貼近 GitHub 顯示）
-function parseMarkdown(md) {
+function parseMarkdown(md, basePath = '') {
+    const rewriteRelativeUrls = (html) => {
+        if (!basePath) return html;
+
+        // 將相對路徑（如 figures/p1.png）改成 reports/YYYY-MM-DD/figures/p1.png
+        return html
+            .replace(/(<img[^>]*\ssrc=")((?!https?:|data:|\/|#)[^"]+)(")/g, `$1${basePath}/$2$3`)
+            .replace(/(<a[^>]*\shref=")((?!https?:|mailto:|\/|#)[^"]+)(")/g, `$1${basePath}/$2$3`);
+    };
+
     if (window.marked) {
         marked.setOptions({
             gfm: true,
             breaks: false
         });
-        return `<div class="report-content">${marked.parse(md)}</div>`;
+        const rendered = marked.parse(md);
+        return `<div class="report-content">${rewriteRelativeUrls(rendered)}</div>`;
     }
 
     // Fallback：若 CDN 載入失敗，至少保留基本可讀性
