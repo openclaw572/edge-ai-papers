@@ -1,6 +1,41 @@
 {
-  "lastUpdated": "2026-04-06",
+  "lastUpdated": "2026-04-09",
   "dates": [
+    {
+      "date": "2026-04-09",
+      "path": "2026-04-09/index.json",
+      "paperCount": 3,
+      "paperType": "review",
+      "papers": [
+        {
+          "title": "From Tiny Machine Learning to Tiny Deep Learning: A Survey",
+          "tags": [
+            "Edge AI",
+            "Review Paper",
+            "TinyML",
+            "TinyDL"
+          ]
+        },
+        {
+          "title": "Towards Resilient Federated Learning in CyberEdge Networks: Recent Advances and Future Trends",
+          "tags": [
+            "Edge AI Security",
+            "Review Paper",
+            "Federated Learning",
+            "Resilience"
+          ]
+        },
+        {
+          "title": "SoK: Where's the \"up\"?! A Comprehensive (bottom-up) Study on the Security of Arm Cortex-M Systems",
+          "tags": [
+            "Embedded Systems Security",
+            "Review Paper",
+            "Cortex-M",
+            "SoK"
+          ]
+        }
+      ]
+    },
     {
       "date": "2026-04-06",
       "path": "2026-04-06/index.json",
@@ -9,35 +44,72 @@
       "papers": [
         {
           "title": "Cognitive Edge Computing: A Comprehensive Survey on Optimizing Large Models and AI Agents for Pervasive Deployment",
-          "tags": ["Edge AI", "Review Paper", "LLM", "Agent", "Edge Deployment"]
+          "tags": [
+            "Edge AI",
+            "Review Paper",
+            "LLM",
+            "Agent",
+            "Edge Deployment"
+          ]
         },
         {
           "title": "A Survey on Industrial Internet of Things Security: Requirements, Attacks, AI-Based Solutions, and Edge Computing Opportunities",
-          "tags": ["Edge AI Security", "Review Paper", "IIoT", "AI-based Security", "Edge/Fog"]
+          "tags": [
+            "Edge AI Security",
+            "Review Paper",
+            "IIoT",
+            "AI-based Security",
+            "Edge/Fog"
+          ]
         },
         {
           "title": "A survey of cyber threat intelligence in embedded system driven security for mobile health systems",
-          "tags": ["Embedded Systems Security", "Review Paper", "CTI", "mHealth", "SpringerOpen"]
+          "tags": [
+            "Embedded Systems Security",
+            "Review Paper",
+            "CTI",
+            "mHealth",
+            "SpringerOpen"
+          ]
         }
       ]
     },
     {
-      "date": "2026-04-01", 
+      "date": "2026-04-01",
       "path": "2026-04-01/index.json",
       "paperCount": 3,
       "paperType": "review",
       "papers": [
         {
           "title": "Empowering Edge Intelligence: A Comprehensive Survey on On-Device AI Models",
-          "tags": ["Edge AI", "Review Paper", "On-Device AI", "Model Compression", "Systematic Review"]
+          "tags": [
+            "Edge AI",
+            "Review Paper",
+            "On-Device AI",
+            "Model Compression",
+            "Systematic Review"
+          ]
         },
         {
           "title": "SoK: Towards Security and Safety of Edge AI",
-          "tags": ["Edge AI Security", "Review Paper", "Safety", "Security", "Systematization of Knowledge"]
+          "tags": [
+            "Edge AI Security",
+            "Review Paper",
+            "Safety",
+            "Security",
+            "Systematization of Knowledge"
+          ]
         },
         {
           "title": "Advanced Hardware Security on Embedded Processors: A 2026 Systematic Review",
-          "tags": ["Embedded Systems Security", "Review Paper", "Hardware Security", "Post-Quantum", "PUF", "TEE"]
+          "tags": [
+            "Embedded Systems Security",
+            "Review Paper",
+            "Hardware Security",
+            "Post-Quantum",
+            "PUF",
+            "TEE"
+          ]
         }
       ]
     },
@@ -49,15 +121,31 @@
       "papers": [
         {
           "title": "Edge Artificial Intelligence: A Systematic Review of Evolution, Taxonomic Frameworks, and Future Horizons",
-          "tags": ["Edge AI", "Review Paper", "Taxonomy", "Systematic Review"]
+          "tags": [
+            "Edge AI",
+            "Review Paper",
+            "Taxonomy",
+            "Systematic Review"
+          ]
         },
         {
           "title": "On the Security and Privacy of Federated Learning: A Survey with Attacks, Defenses, Frameworks, Applications, and Future Directions",
-          "tags": ["Edge AI Security", "Review Paper", "Federated Learning", "Privacy", "Security"]
+          "tags": [
+            "Edge AI Security",
+            "Review Paper",
+            "Federated Learning",
+            "Privacy",
+            "Security"
+          ]
         },
         {
           "title": "Advanced Hardware Security on Embedded Processors: A 2026 Systematic Review",
-          "tags": ["Embedded Systems Security", "Review Paper", "Hardware Security", "Systematic Review"]
+          "tags": [
+            "Embedded Systems Security",
+            "Review Paper",
+            "Hardware Security",
+            "Systematic Review"
+          ]
         }
       ]
     },
@@ -68,15 +156,28 @@
       "papers": [
         {
           "title": "Channel-Adaptive Edge AI: Maximizing Inference Throughput by Adapting Computational Complexity to Channel States",
-          "tags": ["Edge AI", "Wireless", "Inference Optimization"]
+          "tags": [
+            "Edge AI",
+            "Wireless",
+            "Inference Optimization"
+          ]
         },
         {
           "title": "TT-SEAL: TTD-Aware Selective Encryption for Adversarially-Robust and Low-Latency Edge AI",
-          "tags": ["Edge AI", "Security", "Encryption", "TTD"]
+          "tags": [
+            "Edge AI",
+            "Security",
+            "Encryption",
+            "TTD"
+          ]
         },
         {
           "title": "IoTBec: An Accurate and Efficient Recurring Vulnerability Detection Framework for Black Box IoT Devices",
-          "tags": ["Embedded Systems Security", "IoT", "Vulnerability Detection"]
+          "tags": [
+            "Embedded Systems Security",
+            "IoT",
+            "Vulnerability Detection"
+          ]
         }
       ]
     },
@@ -87,11 +188,20 @@
       "papers": [
         {
           "title": "Channel-Adaptive Edge AI: Maximizing Inference Throughput by Adapting Computational Complexity to Channel States",
-          "tags": ["Edge AI", "Wireless", "Inference Optimization"]
+          "tags": [
+            "Edge AI",
+            "Wireless",
+            "Inference Optimization"
+          ]
         },
         {
           "title": "TT-SEAL: TTD-Aware Selective Encryption for Adversarially-Robust and Low-Latency Edge AI",
-          "tags": ["Edge AI", "Security", "Encryption", "TTD"]
+          "tags": [
+            "Edge AI",
+            "Security",
+            "Encryption",
+            "TTD"
+          ]
         }
       ]
     }

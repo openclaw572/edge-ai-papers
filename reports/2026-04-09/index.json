@@ -1,0 +1,40 @@
+{
+  "date": "2026-04-09",
+  "paperCount": 3,
+  "paperType": "review",
+  "papers": [
+    {
+      "id": "paper-1",
+      "category": "Edge AI",
+      "title": "From Tiny Machine Learning to Tiny Deep Learning: A Survey",
+      "path": "paper-1-edge-ai-tinyml-to-tinydl-survey.md",
+      "link": "https://arxiv.org/abs/2506.18927",
+      "type": "REVIEW PAPER"
+    },
+    {
+      "id": "paper-2",
+      "category": "Edge AI Security",
+      "title": "Towards Resilient Federated Learning in CyberEdge Networks: Recent Advances and Future Trends",
+      "path": "paper-2-edge-ai-security-cyberedge-fl-resilience-review.md",
+      "link": "https://arxiv.org/abs/2504.01240",
+      "type": "REVIEW PAPER"
+    },
+    {
+      "id": "paper-3",
+      "category": "Embedded Systems Security",
+      "title": "SoK: Where's the \"up\"?! A Comprehensive (bottom-up) Study on the Security of Arm Cortex-M Systems",
+      "path": "paper-3-embedded-systems-security-arm-cortex-m-sok.md",
+      "link": "https://arxiv.org/abs/2401.15289",
+      "type": "REVIEW PAPER"
+    }
+  ],
+  "notebookLM": {
+    "notebookId": "2824e3ba-fa76-4741-ab49-fe6330b6fc18",
+    "singleSourceQueries": [
+      "55529be1-f091-4086-9e43-8ec62c7b029b",
+      "72ca0bc1-5b70-4c06-8a92-5281010f4e55",
+      "b6c30eef-8b36-4f9c-8059-c25d18f9bb0f"
+    ]
+  },
+  "generatedAt": "2026-04-09T00:00:00+08:00"
+}

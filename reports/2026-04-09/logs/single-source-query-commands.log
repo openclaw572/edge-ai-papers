@@ -1,0 +1,4 @@
+Notebook ID: 2824e3ba-fa76-4741-ab49-fe6330b6fc18
+nlm notebook query 2824e3ba-fa76-4741-ab49-fe6330b6fc18 "<PROMPT_FROM_FILE>" --source-ids 55529be1-f091-4086-9e43-8ec62c7b029b
+nlm notebook query 2824e3ba-fa76-4741-ab49-fe6330b6fc18 "<PROMPT_FROM_FILE>" --source-ids 72ca0bc1-5b70-4c06-8a92-5281010f4e55
+nlm notebook query 2824e3ba-fa76-4741-ab49-fe6330b6fc18 "<PROMPT_FROM_FILE>" --source-ids b6c30eef-8b36-4f9c-8059-c25d18f9bb0f
