@@ -313,13 +313,45 @@ body {
 /* 圖片樣式 */
 .report-content img {
     display: block;
-    max-width: min(100%, 720px);
-    width: auto;
+    width: 100%;
+    max-width: 520px;
     height: auto;
-    margin: 0.75rem auto 1rem;
+    margin: 0.5rem auto 0.75rem;
     border-radius: 8px;
     border: 1px solid #e5e7eb;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.report-content {
+    overflow-x: hidden;
+}
+
+/* 表格樣式 */
+.report-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.95rem;
+    display: block;
+    overflow-x: auto;
+    border: 1px solid #d1d5db;
+}
+
+.report-content th,
+.report-content td {
+    border: 1px solid #d1d5db;
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.report-content thead th {
+    background: #f8fafc;
+    color: #1f2937;
+}
+
+.report-content tbody tr:nth-child(even) {
+    background: #fcfcfd;
 }
 
 /* 連結樣式 */
