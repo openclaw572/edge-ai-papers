@@ -1,0 +1,12 @@
+{
+  "date": "2026-04-13",
+  "paperCount": 3,
+  "paperType": "review",
+  "papers": [
+    {"id":"paper-1","category":"Edge AI","title":"Edge AI: A Taxonomy, Systematic Review and Future Directions","path":"paper-1-edge-ai-taxonomy-systematic-review-future-directions.md","link":"https://arxiv.org/abs/2407.04053","type":"REVIEW PAPER"},
+    {"id":"paper-2","category":"Edge AI Security","title":"The Federation Strikes Back: A Survey of Federated Learning Privacy Attacks, Defenses, Applications, and Policy Landscape","path":"paper-2-edge-ai-security-federation-strikes-back-survey.md","link":"https://arxiv.org/abs/2405.03636","type":"REVIEW PAPER"},
+    {"id":"paper-3","category":"Embedded Systems Security","title":"Modern Hardware Security: A Review of Attacks and Countermeasures","path":"paper-3-embedded-systems-security-modern-hardware-security-review.md","link":"https://arxiv.org/abs/2501.04394","type":"REVIEW PAPER"}
+  ],
+  "notebookLM": {"notebookId": "3074133c-394b-4857-aee8-f5c8d39f8315", "singleSourceQueries": ["8cdcfeb9-8fa1-46f1-b373-a828ea7eabb4", "59a4b570-8824-4b0e-a53f-08f2ef671dc7", "bc0e13aa-4468-469d-ba0b-2ee8a8cfd110"]},
+  "generatedAt": "2026-04-13T00:00:00+08:00"
+}

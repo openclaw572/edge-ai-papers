@@ -1,0 +1,4 @@
+Notebook ID: 3074133c-394b-4857-aee8-f5c8d39f8315
+nlm notebook query 3074133c-394b-4857-aee8-f5c8d39f8315 "<PROMPT_FROM_FILE>" --source-ids 8cdcfeb9-8fa1-46f1-b373-a828ea7eabb4
+nlm notebook query 3074133c-394b-4857-aee8-f5c8d39f8315 "<PROMPT_FROM_FILE>" --source-ids 59a4b570-8824-4b0e-a53f-08f2ef671dc7
+nlm notebook query 3074133c-394b-4857-aee8-f5c8d39f8315 "<PROMPT_FROM_FILE>" --source-ids bc0e13aa-4468-469d-ba0b-2ee8a8cfd110

@@ -1,6 +1,41 @@
 {
-  "lastUpdated": "2026-04-09",
+  "lastUpdated": "2026-04-13",
   "dates": [
+    {
+      "date": "2026-04-13",
+      "path": "2026-04-13/index.json",
+      "paperCount": 3,
+      "paperType": "review",
+      "papers": [
+        {
+          "title": "Edge AI: A Taxonomy, Systematic Review and Future Directions",
+          "tags": [
+            "Edge AI",
+            "Review Paper",
+            "Taxonomy",
+            "Systematic Review"
+          ]
+        },
+        {
+          "title": "The Federation Strikes Back: A Survey of Federated Learning Privacy Attacks, Defenses, Applications, and Policy Landscape",
+          "tags": [
+            "Edge AI Security",
+            "Review Paper",
+            "Federated Learning",
+            "Privacy",
+            "Security"
+          ]
+        },
+        {
+          "title": "Modern Hardware Security: A Review of Attacks and Countermeasures",
+          "tags": [
+            "Embedded Systems Security",
+            "Review Paper",
+            "Hardware Security"
+          ]
+        }
+      ]
+    },
     {
       "date": "2026-04-09",
       "path": "2026-04-09/index.json",
