@@ -1,6 +1,23 @@
 {
-  "lastUpdated": "2026-04-13",
+  "lastUpdated": "2026-04-19",
   "dates": [
+    {
+      "date": "2026-04-19",
+      "path": "2026-04-19/index.json",
+      "paperCount": 1,
+      "paperType": "review",
+      "papers": [
+        {
+          "title": "Affordable Precision Agriculture: A Deployment-Oriented Review of Low-Cost, Low-Power Edge AI and TinyML for Resource-Constrained Farming Systems.",
+          "tags": [
+            "Edge AI",
+            "Review Paper",
+            "TinyML",
+            "Precision Agriculture"
+          ]
+        }
+      ]
+    },
     {
       "date": "2026-04-13",
       "path": "2026-04-13/index.json",
