@@ -6,7 +6,7 @@ Supports two modes:
 2. Batch upload via --manifest JSON used by publish_notebooklm_batch.py
 
 The script reuses Hermes' Google OAuth token at ~/.hermes/google_token.json.
-Default privacy is PRIVATE for safety.
+Default privacy is UNLISTED for safety.
 
 Examples:
   python scripts/upload_youtube_batch.py --channel-info
@@ -224,12 +224,20 @@ def upload_video(
 
     video_id = response["id"]
     video_url = f"https://www.youtube.com/watch?v={video_id}"
+    thumbnail_warning = None
 
     if thumbnail_file:
         thumb_path = Path(thumbnail_file)
         if thumb_path.exists() and thumb_path.is_file():
-            youtube.thumbnails().set(videoId=video_id, media_body=str(thumb_path)).execute()
-
+            try:
+                youtube.thumbnails().set(videoId=video_id, media_body=str(thumb_path)).execute()
+            except HttpError as exc:
+                thumbnail_warning = {
+                    "error": "thumbnail_set_failed",
+                    "status": getattr(exc, "status_code", None),
+                    "detail": exc.content.decode("utf-8", errors="ignore") if getattr(exc, "content", None) else str(exc),
+                }
+        
     if playlist_id:
         youtube.playlistItems().insert(
             part="snippet",
@@ -246,6 +254,7 @@ def upload_video(
         "url": video_url,
         "title": payload["snippet"]["title"],
         "privacyStatus": privacy_status,
+        **({"thumbnailWarning": thumbnail_warning} if thumbnail_warning else {}),
     }
 
 
@@ -302,7 +311,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-manifest", help="Write updated manifest to another path")
     parser.add_argument("--channel-info", action="store_true", help="Show authenticated YouTube channel info and exit")
     parser.add_argument("--dry-run", action="store_true", help="Validate inputs and print intended upload payloads without uploading")
-    parser.add_argument("--privacy-status", default="private", choices=["private", "unlisted", "public"])
+    parser.add_argument("--privacy-status", default="unlisted", choices=["private", "unlisted", "public"])
     parser.add_argument("--category-id", default=DEFAULT_CATEGORY_ID)
     parser.add_argument("--playlist-id")
 
