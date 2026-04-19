@@ -15,7 +15,7 @@ Examples:
     --video-file /tmp/video.mp4 \
     --title "Edge AI paper summary" \
     --description-file /tmp/desc.txt \
-    --privacy-status private
+    --privacy-status unlisted
 
   python scripts/upload_youtube_batch.py \
     --manifest /tmp/batch.json \
