@@ -243,6 +243,98 @@ def curated_review_fallback(topic: str, processed_ids: set[str]) -> dict[str, An
     return None
 
 
+def extract_json_object(text: str) -> dict[str, Any]:
+    text = (text or '').strip()
+    start = text.find('{')
+    end = text.rfind('}')
+    if start < 0 or end < start:
+        raise ValueError(f'No JSON object found in: {text[:500]}')
+    return json.loads(text[start:end + 1])
+
+
+def heuristic_value_score(paper: dict[str, Any], mode: str) -> float:
+    score = float(paper.get('credibility_score') or 0)
+    title = (paper.get('title') or '').lower()
+    abstract = (paper.get('abstract') or '').lower()
+    hay = f'{title} {abstract}'
+    if mode == 'review':
+        if REVIEW_RE.search(title):
+            score += 20
+        for needle in ['survey', 'review', 'overview', 'systematic', 'taxonomy', 'benchmark']:
+            if needle in hay:
+                score += 4
+    for needle in ['deployment', 'efficient', 'resource-constrained', 'tinyml', 'edge', 'on-device', 'federated']:
+        if needle in hay:
+            score += 2
+    if paper.get('source') in {'dblp-open', 'arxiv'}:
+        score += 3
+    if paper.get('citations', 0) >= 20:
+        score += 3
+    return round(score, 2)
+
+
+def llm_rank_topic_candidates(topic: str, mode: str, candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
+    shortlist = []
+    for idx, paper in enumerate(candidates[:5]):
+        shortlist.append({
+            'index': idx,
+            'title': paper.get('title', ''),
+            'published': paper.get('published', ''),
+            'venue': paper.get('venue', ''),
+            'source': paper.get('source', ''),
+            'citations': paper.get('citations', 0),
+            'credibility_score': paper.get('credibility_score', 0),
+            'heuristic_value_score': heuristic_value_score(paper, mode),
+            'abstract': (paper.get('abstract', '') or '')[:900],
+        })
+    prompt = (
+        'You are selecting one paper candidate for the edge-ai-papers website. '\
+        'Goal: choose the single best candidate for credibility, reader value, and usefulness as a notebook/report/video article. '\
+        'Prefer strong review/survey/overview papers when mode=review. '\
+        'Do not pick based only on novelty; credibility and substance matter more.\n\n'
+        f'Topic: {topic}\n'
+        f'Mode: {mode}\n\n'
+        'Return JSON only with this exact schema: '\
+        '{"selected_index": <int>, "reason": "<short reason>", "confidence": <0-100>}\n\n'
+        f'Candidates:\n{json.dumps(shortlist, ensure_ascii=False, indent=2)}'
+    )
+    try:
+        res = run(['hermes', 'chat', '-Q', '--source', 'tool', '--max-turns', '1', '-q', prompt], timeout=240)
+        parsed = extract_json_object(res.stdout)
+        idx = parsed.get('selected_index')
+        if not isinstance(idx, int) or idx < 0 or idx >= len(shortlist):
+            raise ValueError(f'Invalid selected_index from LLM: {parsed}')
+        return parsed
+    except Exception as exc:
+        print(f'LLM ranking failed for topic {topic}: {exc}', file=sys.stderr)
+        return None
+
+
+def choose_best_paper(topic: str, mode: str, papers: list[dict[str, Any]]) -> dict[str, Any]:
+    ranked = sorted(
+        papers,
+        key=lambda p: (
+            heuristic_value_score(p, mode),
+            float(p.get('credibility_score') or 0),
+            int(p.get('citations') or 0),
+            p.get('published', ''),
+        ),
+        reverse=True,
+    )
+    llm_choice = llm_rank_topic_candidates(topic, mode, ranked)
+    if llm_choice:
+        chosen = dict(ranked[llm_choice['selected_index']])
+        chosen['_selection'] = {
+            'method': 'hybrid_llm',
+            'reason': llm_choice.get('reason', ''),
+            'confidence': llm_choice.get('confidence'),
+        }
+        return chosen
+    chosen = dict(ranked[0])
+    chosen['_selection'] = {'method': 'heuristic_fallback'}
+    return chosen
+
+
 def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search: int = 40, candidates_per_topic: int = 8) -> list[dict[str, Any]]:
     selected = []
     processed_ids = load_processed_ids()
@@ -281,7 +373,7 @@ def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search:
                 papers = [curated]
         if not papers:
             raise RuntimeError(f'No unused {mode} paper with pdf_url found for topic {topic}')
-        chosen = papers[0]
+        chosen = choose_best_paper(topic, mode, papers)
         selected.append(chosen)
         selected_ids.add(paper_identity(chosen))
     return selected
