@@ -46,6 +46,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REPORTS_ROOT = REPO_ROOT / "reports"
+MAX_LOCAL_VIDEO_BYTES = 25 * 1024 * 1024
 
 
 def read_json(path: Path, default):
@@ -71,6 +72,17 @@ def copy_if_present(src: str | None, dest: Path) -> str | None:
     ensure_parent(dest)
     shutil.copy2(src_path, dest)
     return dest.name
+
+
+def should_publish_local_video(src: str | None, youtube_url: str | None) -> bool:
+    if not src:
+        return False
+    if youtube_url:
+        return False
+    src_path = Path(src)
+    if not src_path.exists():
+        raise FileNotFoundError(f"Missing source file: {src_path}")
+    return src_path.stat().st_size <= MAX_LOCAL_VIDEO_BYTES
 
 
 def append_video_section(markdown_text: str, rel_video: str | None, youtube_url: str | None) -> str:
@@ -156,7 +168,7 @@ def publish_manifest(manifest_path: Path):
         md_text = md_src.read_text()
 
         rel_video_name = None
-        if paper.get("video_file"):
+        if should_publish_local_video(paper.get("video_file"), paper.get("youtube_url")):
             rel_video_name = copy_if_present(paper.get("video_file"), videos_dir / f"{paper_id}.mp4")
             if rel_video_name:
                 rel_video_name = f"videos/{rel_video_name}"
