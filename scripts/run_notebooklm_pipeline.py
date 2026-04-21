@@ -12,8 +12,10 @@ import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -23,6 +25,7 @@ NOTEBOOK_UPLOAD_SCRIPT = HERMES_HOME / 'scripts' / 'notebooklm_upload_probe.js'
 NOTEBOOK_REPORT_SCRIPT = HERMES_HOME / 'scripts' / 'notebooklm_generate_report.js'
 NOTEBOOK_VIDEO_SCRIPT = HERMES_HOME / 'scripts' / 'notebooklm_generate_video_summary.js'
 NOTEBOOK_EXPORT_SCRIPT = REPO_ROOT / 'scripts' / 'notebooklm_export_report_markdown.js'
+NOTEBOOK_DELETE_SCRIPT = REPO_ROOT / 'scripts' / 'notebooklm_delete_notebook.js'
 NOTEBOOK_WAIT_VIDEO_SCRIPT = HERMES_HOME / 'scripts' / 'notebooklm_wait_for_video.js'
 NOTEBOOK_DOWNLOAD_VIDEO_SCRIPT = HERMES_HOME / 'scripts' / 'notebooklm_download_video_artifact.sh'
 YOUTUBE_UPLOAD_SCRIPT = REPO_ROOT / 'scripts' / 'upload_youtube_batch.py'
@@ -34,6 +37,10 @@ TOPIC_TO_CATEGORY = {
     'embedded-security': 'Embedded Systems Security',
 }
 TOPIC_ORDER = ['edge-ai', 'edge-ai-security', 'embedded-security']
+DEFAULT_NOTEBOOK_PROFILES = [
+    str(Path.home() / '.hermes' / 'browser-profiles' / 'notebooklm'),
+    str(Path.home() / '.hermes' / 'browser-profiles' / 'notebooklm-b'),
+]
 REVIEW_RE = re.compile(r'\b(review|survey|overview|tutorial|primer|systematic review|sok)\b', re.I)
 PROCESSED_PAPERS_PATH = HERMES_HOME / 'papers' / 'processed_papers.json'
 REVIEW_FALLBACK_QUERIES = {
@@ -224,8 +231,16 @@ def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search:
             '--mode', mode,
             '--output', str(out),
         ]
-        run(cmd, timeout=900)
-        data = json.loads(out.read_text(encoding='utf-8'))
+        discovery_failed = False
+        try:
+            run(cmd, timeout=900)
+        except RuntimeError as exc:
+            discovery_failed = True
+            print(f'Paper discovery failed for topic {topic}: {exc}', file=sys.stderr)
+        if out.exists():
+            data = json.loads(out.read_text(encoding='utf-8'))
+        else:
+            data = {'papers': [], 'metadata': {'discovery_failed': discovery_failed}}
         papers = data.get('papers', [])
         papers = [p for p in papers if is_direct_pdf_url(p.get('pdf_url')) and is_topic_relevant(topic, p)]
         if not papers and mode == 'review':
@@ -256,26 +271,28 @@ def parse_json_stdout(stdout: str) -> dict[str, Any]:
     return json.loads(text[start:])
 
 
-def create_notebook_and_upload(pdf_path: Path) -> dict[str, Any]:
-    res = run(['node', str(NOTEBOOK_UPLOAD_SCRIPT), '--pdf', str(pdf_path), '--hold', '0'], timeout=600)
+def create_notebook_and_upload(pdf_path: Path, profile: str) -> dict[str, Any]:
+    res = run(['node', str(NOTEBOOK_UPLOAD_SCRIPT), '--profile', profile, '--pdf', str(pdf_path), '--hold', '0'], timeout=600)
     data = parse_json_stdout(res.stdout)
     return data['state']
 
 
-def generate_report(notebook_url: str, source_label: str, paper_title: str) -> None:
+def generate_report(notebook_url: str, source_label: str, paper_title: str, profile: str) -> None:
+    report_label = 'Briefing Doc' if is_review_paper({'title': paper_title}) else 'Create Your Own'
     run([
-        'node', str(NOTEBOOK_REPORT_SCRIPT),
+        'node', str(REPO_ROOT / 'scripts' / 'notebooklm_generate_report_min.js'),
+        '--headless',
+        '--profile', profile,
         '--url', notebook_url,
         '--source-label', source_label,
-        '--paper-title', paper_title,
-        '--format', 'auto',
-        '--hold', '0',
+        '--report-label', report_label,
     ], timeout=600)
 
 
-def generate_video(notebook_url: str, source_label: str, paper_title: str) -> None:
+def generate_video(notebook_url: str, source_label: str, paper_title: str, profile: str) -> None:
     run([
         'node', str(NOTEBOOK_VIDEO_SCRIPT),
+        '--profile', profile,
         '--url', notebook_url,
         '--source-label', source_label,
         '--paper-title', paper_title,
@@ -284,30 +301,165 @@ def generate_video(notebook_url: str, source_label: str, paper_title: str) -> No
     ], timeout=600)
 
 
-def export_report_markdown(notebook_url: str, title_hint: str, out_path: Path) -> Path:
+def export_report_markdown(notebook_url: str, title_hint: str, out_path: Path, profile: str, source_label: str = '') -> Path:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
         'node', str(NOTEBOOK_EXPORT_SCRIPT),
+        '--profile', profile,
         '--url', notebook_url,
         '--output', str(out_path),
     ]
     if title_hint:
         cmd += ['--title-hint', title_hint]
+    if source_label:
+        cmd += ['--source-label', source_label]
     run(cmd, timeout=600)
     return out_path
 
 
-def wait_and_download_video(notebook_url: str, out_dir: Path) -> Path:
+def wait_and_download_video(notebook_url: str, out_dir: Path, profile: str) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
-    run(['node', str(NOTEBOOK_WAIT_VIDEO_SCRIPT), '--url', notebook_url, '--timeout-sec', '1200', '--poll-sec', '20'], timeout=1500)
-    res = run(['bash', str(NOTEBOOK_DOWNLOAD_VIDEO_SCRIPT), '--url', notebook_url, '--out-dir', str(out_dir)], timeout=1200)
-    m = re.search(r'Saved video to (.+\.mp4)', res.stdout + '\n' + res.stderr)
+    run(['node', str(NOTEBOOK_WAIT_VIDEO_SCRIPT), '--profile', profile, '--url', notebook_url, '--timeout-sec', '1200', '--poll-sec', '20'], timeout=1500)
+    res = run(['bash', str(NOTEBOOK_DOWNLOAD_VIDEO_SCRIPT), '--profile', profile, '--url', notebook_url, '--out-dir', str(out_dir)], timeout=1200)
+    m = re.search(r'Saved video to (.+\\.mp4)', res.stdout + '\n' + res.stderr)
     if not m:
         mp4s = sorted(out_dir.glob('*.mp4'))
         if not mp4s:
             raise RuntimeError(f'Could not determine downloaded video path\n{res.stdout}\n{res.stderr}')
         return mp4s[-1]
     return Path(m.group(1).strip())
+
+
+def delete_notebook(notebook_url: str, title_hint: str, profile: str) -> dict[str, Any]:
+    cmd = [
+        'node', str(NOTEBOOK_DELETE_SCRIPT),
+        '--profile', profile,
+        '--url', notebook_url,
+        '--headless',
+    ]
+    if title_hint:
+        cmd += ['--title-hint', title_hint]
+    res = run(cmd, timeout=600)
+    return json.loads(res.stdout)
+
+
+def _safe_unlink(path: Path, workspace_root: Path) -> bool:
+    try:
+        resolved = path.resolve()
+        workspace_resolved = workspace_root.resolve()
+    except FileNotFoundError:
+        return False
+    if workspace_resolved not in resolved.parents and resolved != workspace_resolved:
+        raise RuntimeError(f'Refusing to delete path outside workspace: {resolved}')
+    if resolved.exists() and resolved.is_file():
+        resolved.unlink()
+        return True
+    return False
+
+
+def cleanup_local_artifacts(paper: dict[str, Any], workspace_root: Path) -> dict[str, Any]:
+    removed: list[str] = []
+    missing: list[str] = []
+    errors: list[str] = []
+
+    targets: list[Path] = []
+    markdown_source = paper.get('markdown_source')
+    if markdown_source:
+        md_path = Path(markdown_source)
+        targets.append(md_path)
+        targets.append(md_path.parent / 'report.md')
+
+    video_file = paper.get('video_file')
+    if video_file:
+        video_path = Path(video_file)
+        targets.append(video_path)
+        if video_path.parent.name == 'video':
+            targets.extend(sorted(video_path.parent.glob('*')))
+
+    seen = set()
+    unique_targets: list[Path] = []
+    for target in targets:
+        key = str(target)
+        if key not in seen:
+            seen.add(key)
+            unique_targets.append(target)
+
+    for target in unique_targets:
+        try:
+            if _safe_unlink(target, workspace_root):
+                removed.append(str(target))
+            else:
+                missing.append(str(target))
+        except Exception as exc:
+            errors.append(f'{target}: {exc}')
+
+    candidate_dirs = []
+    if markdown_source:
+        candidate_dirs.append(Path(markdown_source).parent)
+    if video_file:
+        candidate_dirs.append(Path(video_file).parent)
+    for directory in candidate_dirs:
+        try:
+            resolved = directory.resolve()
+            workspace_resolved = workspace_root.resolve()
+            if workspace_resolved not in resolved.parents and resolved != workspace_resolved:
+                raise RuntimeError(f'Refusing to touch directory outside workspace: {resolved}')
+            if resolved.exists() and resolved.is_dir() and not any(resolved.iterdir()):
+                resolved.rmdir()
+        except FileNotFoundError:
+            continue
+        except Exception as exc:
+            errors.append(f'{directory}: {exc}')
+
+    return {
+        'paper_id': paper.get('id'),
+        'removed': removed,
+        'missing': missing,
+        'errors': errors,
+    }
+
+
+def post_publish_cleanup(manifest_data: dict[str, Any], workspace_root: Path) -> dict[str, Any]:
+    notebook_results = []
+    local_results = []
+    errors = []
+    for paper in manifest_data.get('papers', []):
+        notebook_url = paper.get('notebook_url')
+        profile = paper.get('profile_used')
+        title = paper.get('title', '')
+        if notebook_url and profile:
+            try:
+                notebook_results.append({
+                    'paper_id': paper.get('id'),
+                    'deleted': True,
+                    'result': delete_notebook(notebook_url, title, profile),
+                })
+            except Exception as exc:
+                notebook_results.append({
+                    'paper_id': paper.get('id'),
+                    'deleted': False,
+                    'error': str(exc),
+                })
+                errors.append(f"delete notebook failed for {paper.get('id')}: {exc}")
+        else:
+            notebook_results.append({
+                'paper_id': paper.get('id'),
+                'deleted': False,
+                'skipped': True,
+                'reason': 'missing notebook_url or profile_used',
+            })
+
+        local_result = cleanup_local_artifacts(paper, workspace_root)
+        local_results.append(local_result)
+        if local_result['errors']:
+            errors.extend([f"local cleanup failed for {paper.get('id')}: {msg}" for msg in local_result['errors']])
+
+    return {
+        'performed': True,
+        'notebooks': notebook_results,
+        'local_artifacts': local_results,
+        'errors': errors,
+    }
 
 
 def normalize_exported_markdown(src: Path, paper: dict[str, Any], youtube_url: str | None = None) -> str:
@@ -376,6 +528,112 @@ def build_manifest(papers: list[dict[str, Any]], work_dir: Path, mode: str, run_
     return path
 
 
+def parse_profiles_arg(profiles_arg: str) -> list[str]:
+    profiles = [p.strip() for p in profiles_arg.split(',') if p.strip()]
+    return profiles or DEFAULT_NOTEBOOK_PROFILES
+
+
+def is_video_limit_error(exc: Exception) -> bool:
+    text = str(exc)
+    needles = [
+        'Video overview daily limit reached',
+        '影片摘要使用次數已達每日上限',
+        'daily limit',
+        'try again later',
+        'Could not open video artifact',
+    ]
+    t = text.lower()
+    return any(n.lower() in t for n in needles)
+
+
+def process_one_paper(idx: int, paper: dict[str, Any], mode: str, work_dir: Path, profiles: list[str], profile_locks: dict[str, Lock], start_profile_index: int = 0, skip_youtube: bool = False) -> dict[str, Any]:
+    last_exc = None
+    ordered_profiles = profiles[start_profile_index:] + profiles[:start_profile_index]
+    for attempt, profile in enumerate(ordered_profiles, start=1):
+        lock = profile_locks[profile]
+        with lock:
+            try:
+                topic = paper['topic']
+                category = TOPIC_TO_CATEGORY.get(topic, topic)
+                paper_dir = work_dir / f'paper-{idx}'
+                if paper_dir.exists():
+                    shutil.rmtree(paper_dir)
+                paper_dir.mkdir(parents=True, exist_ok=True)
+                pdf_path = download_pdf(paper['pdf_url'], paper_dir / f'paper-{idx}.pdf')
+                notebook = create_notebook_and_upload(pdf_path, profile)
+                notebook_url = notebook['url']
+                source_label = pdf_path.name
+
+                generate_report(notebook_url, source_label, paper['title'], profile)
+                export_md = export_report_markdown(notebook_url, '', paper_dir / 'report.md', profile, source_label)
+                wrapped_md = write_wrapped_markdown(export_md, paper_dir / 'report_wrapped.md', paper)
+
+                video_path = None
+                video_status = 'skipped' if skip_youtube else 'pending'
+                video_error = None
+                youtube_url = None
+                if not skip_youtube:
+                    try:
+                        generate_video(notebook_url, source_label, paper['title'], profile)
+                        video_path = wait_and_download_video(notebook_url, paper_dir / 'video', profile)
+                        video_status = 'ok'
+                    except Exception as exc:
+                        if is_video_limit_error(exc):
+                            if attempt < len(ordered_profiles):
+                                last_exc = exc
+                                continue
+                            video_status = 'skipped_daily_limit'
+                            video_error = f'All profiles hit video daily limit; skipped video for this paper. Last error: {exc}'
+                        else:
+                            video_status = 'failed'
+                            video_error = str(exc)
+
+                result = {
+                    'id': f'paper-{idx}',
+                    'category': category,
+                    'title': paper['title'],
+                    'slug': f"paper-{idx}-{slugify(category)}-{slugify(paper['title'])[:80]}",
+                    'link': paper.get('pdf_url') or paper.get('url') or '',
+                    'type': 'REVIEW PAPER' if mode == 'review' else 'GENERAL PAPER',
+                    'tags': [category, 'Review Paper' if mode == 'review' else 'General Paper'],
+                    'markdown_source': str(wrapped_md),
+                    'video_file': str(video_path) if video_path else '',
+                    'source': paper.get('source', ''),
+                    'year': (paper.get('published', '') or '')[:4],
+                    'authors': ', '.join(paper.get('authors', [])[:6]),
+                    'notebook_url': notebook_url,
+                    'privacy_status': 'unlisted',
+                    'profile_used': profile,
+                    'video_status': video_status,
+                }
+                if video_error:
+                    result['video_error'] = video_error
+                if youtube_url:
+                    result['youtube_url'] = youtube_url
+                return result
+            except Exception as exc:
+                last_exc = exc
+                if attempt < len(ordered_profiles):
+                    continue
+    raise RuntimeError(f'Failed to process paper-{idx} across profiles: {last_exc}')
+
+
+def process_papers_parallel(selected: list[dict[str, Any]], mode: str, work_dir: Path, profiles: list[str], max_parallel: int, skip_youtube: bool) -> list[dict[str, Any]]:
+    max_workers = max(1, min(max_parallel, len(profiles), len(selected)))
+    profile_locks = {profile: Lock() for profile in profiles}
+    results: dict[int, dict[str, Any]] = {}
+    futures = {}
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        for idx, paper in enumerate(selected, start=1):
+            start_profile_index = (idx - 1) % len(profiles)
+            fut = ex.submit(process_one_paper, idx, paper, mode, work_dir, profiles, profile_locks, start_profile_index, skip_youtube)
+            futures[fut] = idx
+        for fut in as_completed(futures):
+            idx = futures[fut]
+            results[idx] = fut.result()
+    return [results[i] for i in sorted(results)]
+
+
 def git_commit_push(repo: Path, run_date: str, push: bool = True):
     run(['git', 'add', f'reports/{run_date}', 'reports/index.json'], cwd=repo, timeout=120)
     status = run(['git', 'status', '--short'], cwd=repo, timeout=120).stdout.strip()
@@ -393,12 +651,15 @@ def main() -> int:
     parser.add_argument('--topics', default=','.join(TOPIC_ORDER))
     parser.add_argument('--run-date', default=datetime.now(timezone(timedelta(hours=8))).date().isoformat())
     parser.add_argument('--workspace', default='')
+    parser.add_argument('--profiles', default=','.join(DEFAULT_NOTEBOOK_PROFILES))
+    parser.add_argument('--max-parallel', type=int, default=3)
     parser.add_argument('--discover-only', action='store_true')
     parser.add_argument('--skip-youtube', action='store_true')
     parser.add_argument('--skip-push', action='store_true')
     args = parser.parse_args()
 
     topics = [t.strip() for t in args.topics.split(',') if t.strip()]
+    profiles = parse_profiles_arg(args.profiles)
     work_dir = Path(args.workspace) if args.workspace else (Path('/tmp') / f'edge-ai-pipeline-{args.run_date}')
     if work_dir.exists():
         shutil.rmtree(work_dir)
@@ -409,40 +670,14 @@ def main() -> int:
         print(json.dumps({'mode': args.mode, 'run_date': args.run_date, 'selected': selected}, ensure_ascii=False, indent=2))
         return 0
 
-    manifest_papers = []
-    for idx, paper in enumerate(selected, start=1):
-        topic = paper['topic']
-        category = TOPIC_TO_CATEGORY.get(topic, topic)
-        paper_dir = work_dir / f'paper-{idx}'
-        paper_dir.mkdir(parents=True, exist_ok=True)
-        pdf_path = download_pdf(paper['pdf_url'], paper_dir / f'paper-{idx}.pdf')
-        notebook = create_notebook_and_upload(pdf_path)
-        notebook_url = notebook['url']
-        source_label = pdf_path.name
-
-        generate_report(notebook_url, source_label, paper['title'])
-        export_md = export_report_markdown(notebook_url, '', paper_dir / 'report.md')
-        wrapped_md = write_wrapped_markdown(export_md, paper_dir / 'report_wrapped.md', paper)
-
-        generate_video(notebook_url, source_label, paper['title'])
-        video_path = wait_and_download_video(notebook_url, paper_dir / 'video')
-
-        manifest_papers.append({
-            'id': f'paper-{idx}',
-            'category': category,
-            'title': paper['title'],
-            'slug': f"paper-{idx}-{slugify(category)}-{slugify(paper['title'])[:80]}",
-            'link': paper.get('pdf_url') or paper.get('url') or '',
-            'type': 'REVIEW PAPER' if args.mode == 'review' else 'GENERAL PAPER',
-            'tags': [category, 'Review Paper' if args.mode == 'review' else 'General Paper'],
-            'markdown_source': str(wrapped_md),
-            'video_file': str(video_path),
-            'source': paper.get('source', ''),
-            'year': (paper.get('published', '') or '')[:4],
-            'authors': ', '.join(paper.get('authors', [])[:6]),
-            'notebook_url': notebook_url,
-            'privacy_status': 'unlisted',
-        })
+    manifest_papers = process_papers_parallel(
+        selected=selected,
+        mode=args.mode,
+        work_dir=work_dir,
+        profiles=profiles,
+        max_parallel=args.max_parallel,
+        skip_youtube=args.skip_youtube,
+    )
 
     manifest_path = build_manifest(manifest_papers, work_dir, args.mode, args.run_date)
 
@@ -453,6 +688,9 @@ def main() -> int:
 
     run([sys.executable, str(PUBLISH_SCRIPT), str(manifest_path)], cwd=REPO_ROOT, timeout=600)
     git_result = git_commit_push(REPO_ROOT, args.run_date, push=not args.skip_push)
+    cleanup_result = {'performed': False, 'reason': 'cleanup requires a successful git push'}
+    if git_result.get('pushed'):
+        cleanup_result = post_publish_cleanup(manifest_data, work_dir)
 
     summary = {
         'ok': True,
@@ -462,6 +700,7 @@ def main() -> int:
         'manifest': str(manifest_path),
         'papers': manifest_data['papers'],
         'git': git_result,
+        'cleanup': cleanup_result,
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0

@@ -46,7 +46,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REPORTS_ROOT = REPO_ROOT / "reports"
-MAX_LOCAL_VIDEO_BYTES = 25 * 1024 * 1024
+# User preference: never commit local MP4 files into the GitHub repo.
+# Keep video information via YouTube URLs/metadata only.
+MAX_LOCAL_VIDEO_BYTES = 0
 
 
 def read_json(path: Path, default):
