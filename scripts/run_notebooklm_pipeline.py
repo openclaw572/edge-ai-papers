@@ -126,18 +126,44 @@ def is_topic_relevant(topic: str, paper: dict[str, Any]) -> bool:
     return bool(pattern.search(hay))
 
 
+def normalize_paper_identity(value: str | None) -> str:
+    if not value:
+        return ''
+    return re.sub(r'\s+', ' ', str(value).strip().lower())
+
+
+def paper_identity(paper: dict[str, Any]) -> str:
+    return normalize_paper_identity(
+        paper.get('arxiv_id')
+        or paper.get('doi')
+        or paper.get('paper_id')
+        or paper.get('url')
+        or paper.get('arxiv_url')
+        or paper.get('title')
+    )
+
+
 def load_processed_ids() -> set[str]:
     if not PROCESSED_PAPERS_PATH.exists():
         return set()
     try:
         data = json.loads(PROCESSED_PAPERS_PATH.read_text(encoding='utf-8'))
         if isinstance(data, list):
-            return set(str(x) for x in data)
+            return {normalize_paper_identity(x) for x in data if normalize_paper_identity(x)}
         if isinstance(data, dict):
-            return set(str(x) for x in data.get('processed_papers', []))
+            return {normalize_paper_identity(x) for x in data.get('processed_papers', []) if normalize_paper_identity(x)}
     except Exception:
         return set()
     return set()
+
+
+def save_processed_ids(processed_ids: set[str]) -> None:
+    PROCESSED_PAPERS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        'processed_papers': sorted(x for x in processed_ids if x),
+        'updated_at': datetime.now(timezone(timedelta(hours=8))).isoformat(),
+    }
+    PROCESSED_PAPERS_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
 
 def fallback_open_review_paper(topic: str, processed_ids: set[str]) -> dict[str, Any] | None:
@@ -220,6 +246,7 @@ def curated_review_fallback(topic: str, processed_ids: set[str]) -> dict[str, An
 def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search: int = 40, candidates_per_topic: int = 8) -> list[dict[str, Any]]:
     selected = []
     processed_ids = load_processed_ids()
+    selected_ids = set(processed_ids)
     for topic in topics:
         out = workspace / f'{topic}-candidates.json'
         cmd = [
@@ -243,17 +270,20 @@ def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search:
             data = {'papers': [], 'metadata': {'discovery_failed': discovery_failed}}
         papers = data.get('papers', [])
         papers = [p for p in papers if is_direct_pdf_url(p.get('pdf_url')) and is_topic_relevant(topic, p)]
+        papers = [p for p in papers if paper_identity(p) and paper_identity(p) not in selected_ids]
         if not papers and mode == 'review':
-            fallback = fallback_open_review_paper(topic, processed_ids)
+            fallback = fallback_open_review_paper(topic, selected_ids)
             if fallback:
                 papers = [fallback]
         if not papers and mode == 'review':
-            curated = curated_review_fallback(topic, processed_ids)
+            curated = curated_review_fallback(topic, selected_ids)
             if curated:
                 papers = [curated]
         if not papers:
-            raise RuntimeError(f'No {mode} paper with pdf_url found for topic {topic}')
-        selected.append(papers[0])
+            raise RuntimeError(f'No unused {mode} paper with pdf_url found for topic {topic}')
+        chosen = papers[0]
+        selected.append(chosen)
+        selected_ids.add(paper_identity(chosen))
     return selected
 
 
@@ -688,6 +718,18 @@ def main() -> int:
 
     run([sys.executable, str(PUBLISH_SCRIPT), str(manifest_path)], cwd=REPO_ROOT, timeout=600)
     git_result = git_commit_push(REPO_ROOT, args.run_date, push=not args.skip_push)
+    processed_update = {'updated': False, 'reason': 'processed paper registry updates only after a successful git push'}
+    if git_result.get('pushed'):
+        processed_ids = load_processed_ids()
+        new_ids = {paper_identity(p) for p in selected if paper_identity(p)}
+        processed_ids.update(new_ids)
+        save_processed_ids(processed_ids)
+        processed_update = {
+            'updated': True,
+            'count_added': len(new_ids),
+            'processed_registry': str(PROCESSED_PAPERS_PATH),
+            'added_ids': sorted(new_ids),
+        }
     cleanup_result = {'performed': False, 'reason': 'cleanup requires a successful git push'}
     if git_result.get('pushed'):
         cleanup_result = post_publish_cleanup(manifest_data, work_dir)
@@ -700,6 +742,7 @@ def main() -> int:
         'manifest': str(manifest_path),
         'papers': manifest_data['papers'],
         'git': git_result,
+        'processed_registry': processed_update,
         'cleanup': cleanup_result,
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))
