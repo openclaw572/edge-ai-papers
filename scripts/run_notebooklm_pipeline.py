@@ -129,7 +129,9 @@ def is_topic_relevant(topic: str, paper: dict[str, Any]) -> bool:
 def normalize_paper_identity(value: str | None) -> str:
     if not value:
         return ''
-    return re.sub(r'\s+', ' ', str(value).strip().lower())
+    text = str(value).strip().lower()
+    text = re.sub(r'[^a-z0-9\u4e00-\u9fff]+', ' ', text)
+    return re.sub(r'\s+', ' ', text).strip()
 
 
 def paper_identity(paper: dict[str, Any]) -> str:
@@ -252,30 +254,111 @@ def extract_json_object(text: str) -> dict[str, Any]:
     return json.loads(text[start:end + 1])
 
 
-def heuristic_value_score(paper: dict[str, Any], mode: str) -> float:
-    score = float(paper.get('credibility_score') or 0)
+def load_recent_report_titles(limit: int = 60) -> list[str]:
+    index_path = REPO_ROOT / 'reports' / 'index.json'
+    if not index_path.exists():
+        return []
+    try:
+        data = json.loads(index_path.read_text(encoding='utf-8'))
+    except Exception:
+        return []
+    titles = []
+    for day in data.get('dates', []):
+        for paper in day.get('papers', []):
+            title = (paper.get('title') or '').strip()
+            if title:
+                titles.append(title)
+            if len(titles) >= limit:
+                return titles
+    return titles
+
+
+def word_set(text: str) -> set[str]:
+    return {w for w in re.findall(r'[a-z0-9\u4e00-\u9fff]+', (text or '').lower()) if len(w) >= 2}
+
+
+def novelty_score_against_recent(title: str, recent_titles: list[str]) -> float:
+    target = word_set(title)
+    if not target or not recent_titles:
+        return 85.0
+    max_overlap = 0.0
+    for recent in recent_titles:
+        other = word_set(recent)
+        if not other:
+            continue
+        overlap = len(target & other) / max(1, len(target | other))
+        max_overlap = max(max_overlap, overlap)
+    return round(max(20.0, 100.0 - max_overlap * 100.0), 2)
+
+
+def is_recent_duplicate_title(title: str, recent_titles: list[str]) -> bool:
+    normalized = normalize_paper_identity(title)
+    if not normalized:
+        return False
+    return any(normalized == normalize_paper_identity(recent) for recent in recent_titles)
+
+
+def heuristic_selection_breakdown(paper: dict[str, Any], mode: str, recent_titles: list[str]) -> dict[str, Any]:
     title = (paper.get('title') or '').lower()
     abstract = (paper.get('abstract') or '').lower()
     hay = f'{title} {abstract}'
+    credibility = float(paper.get('credibility_score') or 0)
+
+    review_fit = 45.0
     if mode == 'review':
+        review_fit = 55.0
         if REVIEW_RE.search(title):
-            score += 20
-        for needle in ['survey', 'review', 'overview', 'systematic', 'taxonomy', 'benchmark']:
+            review_fit += 25
+        for needle in ['survey', 'review', 'overview', 'systematic', 'taxonomy', 'benchmark', 'sok']:
             if needle in hay:
-                score += 4
-    for needle in ['deployment', 'efficient', 'resource-constrained', 'tinyml', 'edge', 'on-device', 'federated']:
+                review_fit += 5
+    else:
+        if not REVIEW_RE.search(title):
+            review_fit += 20
+
+    reader_value = 50.0
+    for needle in ['deployment', 'deploy', 'efficient', 'resource-constrained', 'tinyml', 'edge', 'on-device', 'federated', 'privacy', 'security']:
         if needle in hay:
-            score += 2
-    if paper.get('source') in {'dblp-open', 'arxiv'}:
-        score += 3
+            reader_value += 4
     if paper.get('citations', 0) >= 20:
-        score += 3
-    return round(score, 2)
+        reader_value += 6
+    if paper.get('source') in {'dblp-open', 'arxiv'}:
+        reader_value += 4
+
+    novelty = novelty_score_against_recent(paper.get('title', ''), recent_titles)
+
+    published = paper.get('published', '')
+    recency = 55.0
+    try:
+        days_old = (datetime.now() - datetime.strptime(published, '%Y-%m-%d')).days
+        if days_old <= 120:
+            recency = 95.0
+        elif days_old <= 365:
+            recency = 80.0
+        elif days_old <= 730:
+            recency = 65.0
+        else:
+            recency = 40.0
+    except Exception:
+        pass
+
+    final_score = round(
+        credibility * 0.35 + review_fit * 0.2 + reader_value * 0.2 + novelty * 0.15 + recency * 0.1,
+        2,
+    )
+    return {
+        'credibility': round(credibility, 2),
+        'review_fit': round(min(review_fit, 100.0), 2),
+        'reader_value': round(min(reader_value, 100.0), 2),
+        'novelty': round(novelty, 2),
+        'recency': round(recency, 2),
+        'final_score': final_score,
+    }
 
 
-def llm_rank_topic_candidates(topic: str, mode: str, candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
+def llm_evaluate_topic_candidates(topic: str, mode: str, candidates: list[dict[str, Any]], recent_titles: list[str]) -> dict[str, Any] | None:
     shortlist = []
-    for idx, paper in enumerate(candidates[:5]):
+    for idx, paper in enumerate(candidates[:6]):
         shortlist.append({
             'index': idx,
             'title': paper.get('title', ''),
@@ -284,61 +367,147 @@ def llm_rank_topic_candidates(topic: str, mode: str, candidates: list[dict[str, 
             'source': paper.get('source', ''),
             'citations': paper.get('citations', 0),
             'credibility_score': paper.get('credibility_score', 0),
-            'heuristic_value_score': heuristic_value_score(paper, mode),
-            'abstract': (paper.get('abstract', '') or '')[:900],
+            'heuristic': paper.get('_heuristic_selection', {}),
+            'abstract': (paper.get('abstract', '') or '')[:1200],
         })
     prompt = (
-        'You are selecting one paper candidate for the edge-ai-papers website. '\
-        'Goal: choose the single best candidate for credibility, reader value, and usefulness as a notebook/report/video article. '\
-        'Prefer strong review/survey/overview papers when mode=review. '\
-        'Do not pick based only on novelty; credibility and substance matter more.\n\n'
+        'You are ranking paper candidates for the edge-ai-papers website. '\
+        'Choose the single best candidate for a high-value, high-credibility article. '\
+        'Balance credibility, review quality, usefulness to readers, and differentiation from recently published reports. '\
+        'When mode=review, strongly prefer substantial survey/review/overview/taxonomy papers.\n\n'
         f'Topic: {topic}\n'
-        f'Mode: {mode}\n\n'
-        'Return JSON only with this exact schema: '\
-        '{"selected_index": <int>, "reason": "<short reason>", "confidence": <0-100>}\n\n'
+        f'Mode: {mode}\n'
+        f'Recent published titles for novelty comparison: {json.dumps(recent_titles[:20], ensure_ascii=False)}\n\n'
+        'Return JSON only with this exact schema:\n'
+        '{\n'
+        '  "selected_index": <int>,\n'
+        '  "overview": "<1-2 sentence summary>",\n'
+        '  "candidates": [\n'
+        '    {"index": <int>, "credibility": <0-100>, "website_value": <0-100>, "novelty": <0-100>, "review_fit": <0-100>, "final_score": <0-100>, "reason": "<short reason>"}\n'
+        '  ]\n'
+        '}\n\n'
         f'Candidates:\n{json.dumps(shortlist, ensure_ascii=False, indent=2)}'
     )
     try:
-        res = run(['hermes', 'chat', '-Q', '--source', 'tool', '--max-turns', '1', '-q', prompt], timeout=240)
+        res = run(['hermes', 'chat', '-Q', '--source', 'tool', '--max-turns', '1', '-q', prompt], timeout=300)
         parsed = extract_json_object(res.stdout)
         idx = parsed.get('selected_index')
+        evaluations = parsed.get('candidates', [])
         if not isinstance(idx, int) or idx < 0 or idx >= len(shortlist):
             raise ValueError(f'Invalid selected_index from LLM: {parsed}')
+        if not isinstance(evaluations, list):
+            raise ValueError(f'Invalid candidate evaluations from LLM: {parsed}')
         return parsed
     except Exception as exc:
         print(f'LLM ranking failed for topic {topic}: {exc}', file=sys.stderr)
         return None
 
 
-def choose_best_paper(topic: str, mode: str, papers: list[dict[str, Any]]) -> dict[str, Any]:
+def normalize_llm_candidate_evaluations(payload: dict[str, Any], shortlist_len: int) -> dict[int, dict[str, Any]]:
+    out: dict[int, dict[str, Any]] = {}
+    for item in payload.get('candidates', []) or []:
+        if not isinstance(item, dict):
+            continue
+        try:
+            idx = int(item.get('index'))
+        except Exception:
+            continue
+        if 0 <= idx < shortlist_len:
+            out[idx] = item
+    return out
+
+
+def write_topic_skip_report(selection_dir: Path, topic: str, mode: str, reason: str, recent_titles: list[str]) -> str:
+    selection_dir.mkdir(parents=True, exist_ok=True)
+    path = selection_dir / f'{topic}-selection.json'
+    payload = {
+        'topic': topic,
+        'mode': mode,
+        'generated_at': datetime.now(timezone(timedelta(hours=8))).isoformat(),
+        'skipped': True,
+        'reason': reason,
+        'recent_titles_considered': recent_titles[:20],
+        'candidates': [],
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    return str(path)
+
+
+def choose_best_paper(topic: str, mode: str, papers: list[dict[str, Any]], recent_titles: list[str], selection_dir: Path) -> dict[str, Any]:
+    enriched = []
+    for paper in papers:
+        item = dict(paper)
+        item['_heuristic_selection'] = heuristic_selection_breakdown(item, mode, recent_titles)
+        enriched.append(item)
     ranked = sorted(
-        papers,
+        enriched,
         key=lambda p: (
-            heuristic_value_score(p, mode),
+            float(p['_heuristic_selection']['final_score']),
             float(p.get('credibility_score') or 0),
             int(p.get('citations') or 0),
             p.get('published', ''),
         ),
         reverse=True,
     )
-    llm_choice = llm_rank_topic_candidates(topic, mode, ranked)
-    if llm_choice:
-        chosen = dict(ranked[llm_choice['selected_index']])
-        chosen['_selection'] = {
-            'method': 'hybrid_llm',
-            'reason': llm_choice.get('reason', ''),
-            'confidence': llm_choice.get('confidence'),
-        }
-        return chosen
-    chosen = dict(ranked[0])
-    chosen['_selection'] = {'method': 'heuristic_fallback'}
+
+    llm_result = llm_evaluate_topic_candidates(topic, mode, ranked, recent_titles)
+    report = {
+        'topic': topic,
+        'mode': mode,
+        'generated_at': datetime.now(timezone(timedelta(hours=8))).isoformat(),
+        'recent_titles_considered': recent_titles[:20],
+        'candidates': [],
+    }
+    llm_eval_by_index = {}
+    if llm_result:
+        llm_eval_by_index = normalize_llm_candidate_evaluations(llm_result, len(ranked[:6]))
+        report['llm'] = llm_result
+
+    chosen_idx = 0
+    selection_method = 'heuristic_fallback'
+    selection_reason = 'Selected by heuristic fallback.'
+    if llm_result:
+        chosen_idx = int(llm_result['selected_index'])
+        selection_method = 'full_hybrid_llm'
+        selection_reason = llm_eval_by_index.get(chosen_idx, {}).get('reason') or llm_result.get('overview') or ''
+
+    for idx, paper in enumerate(ranked[:10]):
+        report['candidates'].append({
+            'rank': idx + 1,
+            'selected': idx == chosen_idx,
+            'identity': paper_identity(paper),
+            'title': paper.get('title', ''),
+            'published': paper.get('published', ''),
+            'venue': paper.get('venue', ''),
+            'source': paper.get('source', ''),
+            'citations': paper.get('citations', 0),
+            'credibility_score': paper.get('credibility_score', 0),
+            'heuristic': paper.get('_heuristic_selection', {}),
+            'llm': llm_eval_by_index.get(idx),
+        })
+
+    selection_dir.mkdir(parents=True, exist_ok=True)
+    report_path = selection_dir / f'{topic}-selection.json'
+    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+    chosen = dict(ranked[chosen_idx])
+    chosen['_selection'] = {
+        'method': selection_method,
+        'reason': selection_reason,
+        'report_path': str(report_path),
+        'heuristic': chosen.get('_heuristic_selection', {}),
+        'llm': llm_eval_by_index.get(chosen_idx),
+    }
     return chosen
 
 
-def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search: int = 40, candidates_per_topic: int = 8) -> list[dict[str, Any]]:
+def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search: int = 40, candidates_per_topic: int = 8) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     selected = []
+    skipped_topics = []
     processed_ids = load_processed_ids()
     selected_ids = set(processed_ids)
+    recent_titles = load_recent_report_titles()
+    selection_dir = workspace / 'selection'
     for topic in topics:
         out = workspace / f'{topic}-candidates.json'
         cmd = [
@@ -363,6 +532,7 @@ def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search:
         papers = data.get('papers', [])
         papers = [p for p in papers if is_direct_pdf_url(p.get('pdf_url')) and is_topic_relevant(topic, p)]
         papers = [p for p in papers if paper_identity(p) and paper_identity(p) not in selected_ids]
+        papers = [p for p in papers if not is_recent_duplicate_title(p.get('title', ''), recent_titles)]
         if not papers and mode == 'review':
             fallback = fallback_open_review_paper(topic, selected_ids)
             if fallback:
@@ -371,12 +541,41 @@ def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search:
             curated = curated_review_fallback(topic, selected_ids)
             if curated:
                 papers = [curated]
+        papers = [p for p in papers if not is_recent_duplicate_title(p.get('title', ''), recent_titles)]
         if not papers:
-            raise RuntimeError(f'No unused {mode} paper with pdf_url found for topic {topic}')
-        chosen = choose_best_paper(topic, mode, papers)
+            reason = f'No unused {mode} paper with pdf_url found for topic {topic}'
+            skipped_topics.append({
+                'topic': topic,
+                'reason': reason,
+                'report_path': write_topic_skip_report(selection_dir, topic, mode, reason, recent_titles),
+            })
+            continue
+        chosen = choose_best_paper(topic, mode, papers, recent_titles, selection_dir)
         selected.append(chosen)
         selected_ids.add(paper_identity(chosen))
-    return selected
+        recent_titles.insert(0, chosen.get('title', ''))
+    return selected, skipped_topics
+
+
+def write_selection_summary(selected: list[dict[str, Any]], skipped_topics: list[dict[str, Any]], work_dir: Path) -> Path:
+    selection_dir = work_dir / 'selection'
+    selection_dir.mkdir(parents=True, exist_ok=True)
+    summary = {
+        'generated_at': datetime.now(timezone(timedelta(hours=8))).isoformat(),
+        'skipped_topics': skipped_topics,
+        'papers': [
+            {
+                'topic': paper.get('topic'),
+                'title': paper.get('title'),
+                'identity': paper_identity(paper),
+                'selection': paper.get('_selection', {}),
+            }
+            for paper in selected
+        ],
+    }
+    path = selection_dir / 'index.json'
+    path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    return path
 
 
 def download_pdf(url: str, out_path: Path) -> Path:
@@ -727,6 +926,7 @@ def process_one_paper(idx: int, paper: dict[str, Any], mode: str, work_dir: Path
                     'privacy_status': 'unlisted',
                     'profile_used': profile,
                     'video_status': video_status,
+                    'selection': paper.get('_selection', {}),
                 }
                 if video_error:
                     result['video_error'] = video_error
@@ -787,9 +987,17 @@ def main() -> int:
         shutil.rmtree(work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    selected = select_papers(args.mode, topics, work_dir)
-    if args.discover_only:
-        print(json.dumps({'mode': args.mode, 'run_date': args.run_date, 'selected': selected}, ensure_ascii=False, indent=2))
+    selected, skipped_topics = select_papers(args.mode, topics, work_dir)
+    selection_summary_path = write_selection_summary(selected, skipped_topics, work_dir)
+    if args.discover_only or not selected:
+        print(json.dumps({
+            'mode': args.mode,
+            'run_date': args.run_date,
+            'selected': selected,
+            'skipped_topics': skipped_topics,
+            'selection_summary': str(selection_summary_path),
+            'no_candidates': not bool(selected),
+        }, ensure_ascii=False, indent=2))
         return 0
 
     manifest_papers = process_papers_parallel(
@@ -832,6 +1040,8 @@ def main() -> int:
         'run_date': args.run_date,
         'workspace': str(work_dir),
         'manifest': str(manifest_path),
+        'selection_summary': str(selection_summary_path),
+        'skipped_topics': skipped_topics,
         'papers': manifest_data['papers'],
         'git': git_result,
         'processed_registry': processed_update,
