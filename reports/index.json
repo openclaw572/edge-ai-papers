@@ -4,13 +4,27 @@
     {
       "date": "2026-04-21",
       "path": "2026-04-21/index.json",
-      "paperCount": 1,
+      "paperCount": 3,
       "paperType": "review",
       "papers": [
         {
           "title": "Affordable Precision Agriculture: A Deployment-Oriented Review of Low-Cost, Low-Power Edge AI and TinyML for Resource-Constrained Farming Systems",
           "tags": [
             "Edge AI",
+            "Review Paper"
+          ]
+        },
+        {
+          "title": "The Federation Strikes Back: A Survey of Federated Learning Privacy Attacks, Defenses, Applications, and Policy Landscape",
+          "tags": [
+            "Edge AI Security",
+            "Review Paper"
+          ]
+        },
+        {
+          "title": "Modern Hardware Security: A Review of Attacks and Countermeasures",
+          "tags": [
+            "Embedded Systems Security",
             "Review Paper"
           ]
         }

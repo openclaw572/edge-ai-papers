@@ -1,6 +1,6 @@
 {
   "date": "2026-04-21",
-  "paperCount": 1,
+  "paperCount": 3,
   "paperType": "review",
   "papers": [
     {
@@ -9,9 +9,27 @@
       "title": "Affordable Precision Agriculture: A Deployment-Oriented Review of Low-Cost, Low-Power Edge AI and TinyML for Resource-Constrained Farming Systems",
       "path": "paper-1-edge-ai-affordable-precision-agriculture-a-deployment-oriented-review-of-low-cost-low-po.md",
       "link": "https://arxiv.org/pdf/2603.15085.pdf",
+      "type": "REVIEW PAPER",
+      "youtubeUrl": "https://www.youtube.com/watch?v=Eh7jVKXlGIA",
+      "videoPath": "videos/paper-1.mp4"
+    },
+    {
+      "id": "paper-2",
+      "category": "Edge AI Security",
+      "title": "The Federation Strikes Back: A Survey of Federated Learning Privacy Attacks, Defenses, Applications, and Policy Landscape",
+      "path": "paper-2-edge-ai-security-the-federation-strikes-back-a-survey-of-federated-learning-privacy-attacks-defen.md",
+      "link": "https://arxiv.org/pdf/2405.03636.pdf",
+      "type": "REVIEW PAPER"
+    },
+    {
+      "id": "paper-3",
+      "category": "Embedded Systems Security",
+      "title": "Modern Hardware Security: A Review of Attacks and Countermeasures",
+      "path": "paper-3-embedded-systems-security-modern-hardware-security-a-review-of-attacks-and-countermeasures.md",
+      "link": "https://arxiv.org/pdf/2501.04394.pdf",
       "type": "REVIEW PAPER"
     }
   ],
   "notebookLM": {},
-  "generatedAt": "2026-04-21T10:35:19.479369+08:00"
+  "generatedAt": "2026-04-21T13:14:48.849591+08:00"
 }
