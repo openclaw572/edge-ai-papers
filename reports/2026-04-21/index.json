@@ -1,0 +1,17 @@
+{
+  "date": "2026-04-21",
+  "paperCount": 1,
+  "paperType": "review",
+  "papers": [
+    {
+      "id": "paper-1",
+      "category": "Edge AI",
+      "title": "Affordable Precision Agriculture: A Deployment-Oriented Review of Low-Cost, Low-Power Edge AI and TinyML for Resource-Constrained Farming Systems",
+      "path": "paper-1-edge-ai-affordable-precision-agriculture-a-deployment-oriented-review-of-low-cost-low-po.md",
+      "link": "https://arxiv.org/pdf/2603.15085.pdf",
+      "type": "REVIEW PAPER"
+    }
+  ],
+  "notebookLM": {},
+  "generatedAt": "2026-04-21T10:35:19.479369+08:00"
+}
