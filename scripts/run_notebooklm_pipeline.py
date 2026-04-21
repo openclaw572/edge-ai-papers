@@ -433,7 +433,7 @@ def write_topic_skip_report(selection_dir: Path, topic: str, mode: str, reason: 
     return str(path)
 
 
-def choose_best_paper(topic: str, mode: str, papers: list[dict[str, Any]], recent_titles: list[str], selection_dir: Path) -> dict[str, Any]:
+def choose_best_paper(topic: str, mode: str, papers: list[dict[str, Any]], recent_titles: list[str], selection_dir: Path, selection_mode: str = 'standard') -> dict[str, Any]:
     enriched = []
     for paper in papers:
         item = dict(paper)
@@ -492,6 +492,7 @@ def choose_best_paper(topic: str, mode: str, papers: list[dict[str, Any]], recen
 
     chosen = dict(ranked[chosen_idx])
     chosen['_selection'] = {
+        'selection_mode': selection_mode,
         'method': selection_method,
         'reason': selection_reason,
         'report_path': str(report_path),
@@ -501,7 +502,7 @@ def choose_best_paper(topic: str, mode: str, papers: list[dict[str, Any]], recen
     return chosen
 
 
-def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search: int = 40, candidates_per_topic: int = 8) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search: int = 40, candidates_per_topic: int = 8, selection_mode: str = 'standard') -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     selected = []
     skipped_topics = []
     processed_ids = load_processed_ids()
@@ -532,7 +533,8 @@ def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search:
         papers = data.get('papers', [])
         papers = [p for p in papers if is_direct_pdf_url(p.get('pdf_url')) and is_topic_relevant(topic, p)]
         papers = [p for p in papers if paper_identity(p) and paper_identity(p) not in selected_ids]
-        papers = [p for p in papers if not is_recent_duplicate_title(p.get('title', ''), recent_titles)]
+        if selection_mode == 'full':
+            papers = [p for p in papers if not is_recent_duplicate_title(p.get('title', ''), recent_titles)]
         if not papers and mode == 'review':
             fallback = fallback_open_review_paper(topic, selected_ids)
             if fallback:
@@ -541,7 +543,8 @@ def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search:
             curated = curated_review_fallback(topic, selected_ids)
             if curated:
                 papers = [curated]
-        papers = [p for p in papers if not is_recent_duplicate_title(p.get('title', ''), recent_titles)]
+        if selection_mode == 'full':
+            papers = [p for p in papers if not is_recent_duplicate_title(p.get('title', ''), recent_titles)]
         if not papers:
             reason = f'No unused {mode} paper with pdf_url found for topic {topic}'
             skipped_topics.append({
@@ -550,7 +553,7 @@ def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search:
                 'report_path': write_topic_skip_report(selection_dir, topic, mode, reason, recent_titles),
             })
             continue
-        chosen = choose_best_paper(topic, mode, papers, recent_titles, selection_dir)
+        chosen = choose_best_paper(topic, mode, papers, recent_titles, selection_dir, selection_mode)
         selected.append(chosen)
         selected_ids.add(paper_identity(chosen))
         recent_titles.insert(0, chosen.get('title', ''))
@@ -970,6 +973,7 @@ def git_commit_push(repo: Path, run_date: str, push: bool = True):
 def main() -> int:
     parser = argparse.ArgumentParser(description='Run end-to-end NotebookLM paper pipeline')
     parser.add_argument('--mode', default='review', choices=['review', 'general'])
+    parser.add_argument('--selection-mode', default='standard', choices=['standard', 'full'])
     parser.add_argument('--topics', default=','.join(TOPIC_ORDER))
     parser.add_argument('--run-date', default=datetime.now(timezone(timedelta(hours=8))).date().isoformat())
     parser.add_argument('--workspace', default='')
@@ -987,11 +991,12 @@ def main() -> int:
         shutil.rmtree(work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    selected, skipped_topics = select_papers(args.mode, topics, work_dir)
+    selected, skipped_topics = select_papers(args.mode, topics, work_dir, selection_mode=args.selection_mode)
     selection_summary_path = write_selection_summary(selected, skipped_topics, work_dir)
     if args.discover_only or not selected:
         print(json.dumps({
             'mode': args.mode,
+            'selection_mode': args.selection_mode,
             'run_date': args.run_date,
             'selected': selected,
             'skipped_topics': skipped_topics,
@@ -1037,6 +1042,7 @@ def main() -> int:
     summary = {
         'ok': True,
         'mode': args.mode,
+        'selection_mode': args.selection_mode,
         'run_date': args.run_date,
         'workspace': str(work_dir),
         'manifest': str(manifest_path),
