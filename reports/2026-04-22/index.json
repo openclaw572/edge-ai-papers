@@ -1,0 +1,18 @@
+{
+  "date": "2026-04-22",
+  "paperCount": 1,
+  "paperType": "review",
+  "papers": [
+    {
+      "id": "paper-1",
+      "category": "Embedded Systems Security",
+      "title": "AI-Assisted Hardware Security Verification: A Survey and AI Accelerator Case Study",
+      "path": "paper-1-embedded-systems-security-ai-assisted-hardware-security-verification-a-survey-and-ai-accelerator-case-study.md",
+      "link": "https://arxiv.org/pdf/2604.01572v1",
+      "type": "REVIEW PAPER",
+      "youtubeUrl": "https://www.youtube.com/watch?v=eVk_3Qwp2WM"
+    }
+  ],
+  "notebookLM": {},
+  "generatedAt": "2026-04-22T13:10:37.227534+08:00"
+}

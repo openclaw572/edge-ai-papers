@@ -1,6 +1,21 @@
 {
-  "lastUpdated": "2026-04-21",
+  "lastUpdated": "2026-04-22",
   "dates": [
+    {
+      "date": "2026-04-22",
+      "path": "2026-04-22/index.json",
+      "paperCount": 1,
+      "paperType": "review",
+      "papers": [
+        {
+          "title": "AI-Assisted Hardware Security Verification: A Survey and AI Accelerator Case Study",
+          "tags": [
+            "Embedded Systems Security",
+            "Review Paper"
+          ]
+        }
+      ]
+    },
     {
       "date": "2026-04-21",
       "path": "2026-04-21/index.json",
