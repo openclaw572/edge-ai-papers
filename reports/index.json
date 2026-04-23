@@ -1,6 +1,41 @@
 {
-  "lastUpdated": "2026-04-22",
+  "lastUpdated": "2026-04-23",
   "dates": [
+    {
+      "date": "2026-04-23",
+      "path": "2026-04-23/index.json",
+      "paperCount": 3,
+      "paperType": "general",
+      "papers": [
+        {
+          "title": "In-Edge AI: Intelligentizing Mobile Edge Computing, Caching and Communication by Federated Learning",
+          "tags": [
+            "Edge AI",
+            "Federated Learning",
+            "Mobile Edge Computing",
+            "IEEE Network"
+          ]
+        },
+        {
+          "title": "Asynchronous Federated Learning with Differential Privacy for Edge Intelligence",
+          "tags": [
+            "Edge AI Security",
+            "Federated Learning",
+            "Differential Privacy",
+            "Edge Intelligence"
+          ]
+        },
+        {
+          "title": "What You Corrupt Is Not What You Crash: Challenges in Fuzzing Embedded Devices",
+          "tags": [
+            "Embedded System Security",
+            "NDSS",
+            "Fuzzing",
+            "Firmware Security"
+          ]
+        }
+      ]
+    },
     {
       "date": "2026-04-22",
       "path": "2026-04-22/index.json",

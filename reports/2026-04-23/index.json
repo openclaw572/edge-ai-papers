@@ -1,0 +1,39 @@
+{
+  "date": "2026-04-23",
+  "paperCount": 3,
+  "paperType": "general",
+  "papers": [
+    {
+      "id": "edge-ai-2026-04-23",
+      "category": "Edge AI",
+      "title": "In-Edge AI: Intelligentizing Mobile Edge Computing, Caching and Communication by Federated Learning",
+      "path": "edge-ai-in-edge-ai-intelligentizing-mobile-edge-computing.md",
+      "link": "https://arxiv.org/abs/1809.07857",
+      "type": "JOURNAL ARTICLE",
+      "youtubeUrl": "https://www.youtube.com/watch?v=zXOBjZF8wIA"
+    },
+    {
+      "id": "edge-ai-security-2026-04-23",
+      "category": "Edge AI Security",
+      "title": "Asynchronous Federated Learning with Differential Privacy for Edge Intelligence",
+      "path": "edge-ai-security-asynchronous-federated-learning-differential-privacy.md",
+      "link": "https://arxiv.org/abs/1912.07902",
+      "type": "PREPRINT",
+      "youtubeUrl": "https://www.youtube.com/watch?v=LxbD8Zkoh_w"
+    },
+    {
+      "id": "embedded-security-2026-04-23",
+      "category": "Embedded System Security",
+      "title": "What You Corrupt Is Not What You Crash: Challenges in Fuzzing Embedded Devices",
+      "path": "embedded-system-security-what-you-corrupt-is-not-what-you-crash.md",
+      "link": "https://doi.org/10.14722/ndss.2018.23166",
+      "type": "CONFERENCE PAPER",
+      "youtubeUrl": "https://www.youtube.com/watch?v=OO66L1pfEUI"
+    }
+  ],
+  "notebookLM": {
+    "notebookId": "2cf393a7-857d-4882-93d9-8d30415e1548",
+    "notebookUrl": "https://notebooklm.google.com/notebook/2cf393a7-857d-4882-93d9-8d30415e1548"
+  },
+  "generatedAt": "2026-04-23T13:00:00+08:00"
+}
