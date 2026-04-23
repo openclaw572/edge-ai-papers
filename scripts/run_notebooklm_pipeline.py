@@ -18,6 +18,16 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
+try:
+    from deep_translator import GoogleTranslator
+except ImportError:
+    GoogleTranslator = None
+
+try:
+    from opencc import OpenCC
+except ImportError:
+    OpenCC = None
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HERMES_HOME = Path.home() / '.hermes'
 DISCOVERY_SCRIPT = HERMES_HOME / 'skills' / 'research' / 'paper-discovery' / 'scripts' / 'paper_discovery.py'
@@ -43,6 +53,9 @@ DEFAULT_NOTEBOOK_PROFILES = [
 ]
 REVIEW_RE = re.compile(r'\b(review|survey|overview|tutorial|primer|systematic review|sok)\b', re.I)
 PROCESSED_PAPERS_PATH = HERMES_HOME / 'papers' / 'processed_papers.json'
+TRADITIONAL_CHINESE_HINTS = set('繁體學術論點網頁應為於與機體臺灣這個後續優勢風險關鍵研究實驗結果比較應用導致對應設備裝置發現說明類別來源發表年份作者連結報告影片')
+SIMPLIFIED_CHINESE_HINTS = set('简体学习术点网页应为于与机体台湾这个后续优势风险关键研究实验结果比较应用导致对应设备装置发现说明类别来源发表年份作者连结报告影片')
+S2T_CONVERTER = OpenCC('s2twp') if OpenCC else None
 REVIEW_FALLBACK_QUERIES = {
     'edge-ai': [
         'edge ai review',
@@ -166,6 +179,78 @@ def save_processed_ids(processed_ids: set[str]) -> None:
         'updated_at': datetime.now(timezone(timedelta(hours=8))).isoformat(),
     }
     PROCESSED_PAPERS_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+
+def convert_to_traditional_chinese(text: str) -> str:
+    if not text:
+        return text
+    if S2T_CONVERTER is None:
+        return text
+    return S2T_CONVERTER.convert(text)
+
+
+def traditional_chinese_score(text: str) -> dict[str, int]:
+    cjk = sum(1 for ch in text if '\u4e00' <= ch <= '\u9fff')
+    trad = sum(1 for ch in text if ch in TRADITIONAL_CHINESE_HINTS)
+    simp = sum(1 for ch in text if ch in SIMPLIFIED_CHINESE_HINTS)
+    latin = sum(1 for ch in text if ('A' <= ch <= 'Z') or ('a' <= ch <= 'z'))
+    return {'cjk': cjk, 'trad': trad, 'simp': simp, 'latin': latin}
+
+
+def is_probably_traditional_chinese(text: str) -> bool:
+    score = traditional_chinese_score(text)
+    if score['cjk'] < 40:
+        return False
+    if score['trad'] >= score['simp'] and score['cjk'] >= max(40, score['latin'] // 2):
+        return True
+    return score['cjk'] > score['latin'] * 2 and score['simp'] == 0
+
+
+def _translate_segments_to_traditional_chinese(text: str) -> str:
+    if not text or GoogleTranslator is None:
+        return convert_to_traditional_chinese(text)
+
+    translator = GoogleTranslator(source='auto', target='zh-TW')
+    lines = text.splitlines()
+    translated_lines: list[str] = []
+    buffer: list[str] = []
+    in_code_block = False
+
+    def flush_buffer() -> None:
+        nonlocal buffer
+        if not buffer:
+            return
+        segment = '\n'.join(buffer).strip('\n')
+        translated = translator.translate(segment) if segment.strip() else segment
+        translated_lines.extend(translated.splitlines())
+        buffer = []
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('```'):
+            flush_buffer()
+            in_code_block = not in_code_block
+            translated_lines.append(line)
+            continue
+        if in_code_block:
+            translated_lines.append(line)
+            continue
+        if not stripped:
+            flush_buffer()
+            translated_lines.append('')
+            continue
+        buffer.append(line)
+
+    flush_buffer()
+    return convert_to_traditional_chinese('\n'.join(translated_lines))
+
+
+def ensure_traditional_chinese_report(text: str) -> str:
+    normalized = convert_to_traditional_chinese(text)
+    if is_probably_traditional_chinese(normalized):
+        return normalized
+    translated = _translate_segments_to_traditional_chinese(normalized)
+    return convert_to_traditional_chinese(translated)
 
 
 def fallback_open_review_paper(topic: str, processed_ids: set[str]) -> dict[str, Any] | None:
@@ -815,7 +900,8 @@ def normalize_exported_markdown(src: Path, paper: dict[str, Any], youtube_url: s
         cleaned.append(line)
     body = '\n'.join(cleaned).strip() + '\n'
     body = body.replace('\\--------------------------------------------------------------------------------', '---')
-    kind = 'Review Paper' if is_review_paper(paper) else 'General Paper'
+    body = ensure_traditional_chinese_report(body.rstrip()) + '\n'
+    kind = '回顧／綜述論文' if is_review_paper(paper) else '一般論文'
     wrapper = [
         f"## {paper['title']}",
         '',
@@ -824,6 +910,7 @@ def normalize_exported_markdown(src: Path, paper: dict[str, Any], youtube_url: s
         f"**發表年份：** {(paper.get('published', '') or '')[:4]}  ",
         f"**作者：** {', '.join(paper.get('authors', [])[:6]) or '未整理（待補）'}  ",
         f"**連結：** {paper.get('pdf_url') or paper.get('url') or paper.get('arxiv_url') or ''}",
+        '**報告語言：** 繁體中文（若 NotebookLM 匯出非繁體中文，已自動後處理）',
         '',
         '### NotebookLM 報告（Markdown Export）',
         '',
@@ -959,12 +1046,12 @@ def process_papers_parallel(selected: list[dict[str, Any]], mode: str, work_dir:
     return [results[i] for i in sorted(results)]
 
 
-def git_commit_push(repo: Path, run_date: str, push: bool = True):
+def git_commit_push(repo: Path, run_date: str, mode: str, push: bool = True):
     run(['git', 'add', f'reports/{run_date}', 'reports/index.json'], cwd=repo, timeout=120)
     status = run(['git', 'status', '--short'], cwd=repo, timeout=120).stdout.strip()
     if not status:
         return {'committed': False, 'pushed': False}
-    run(['git', 'commit', '-m', f'feat: add {run_date} automated review paper batch'], cwd=repo, timeout=300)
+    run(['git', 'commit', '-m', f'feat: add {run_date} automated {mode} paper batch'], cwd=repo, timeout=300)
     if push:
         run(['git', 'push', 'origin', 'main'], cwd=repo, timeout=300)
     return {'committed': True, 'pushed': push}
@@ -972,7 +1059,7 @@ def git_commit_push(repo: Path, run_date: str, push: bool = True):
 
 def main() -> int:
     parser = argparse.ArgumentParser(description='Run end-to-end NotebookLM paper pipeline')
-    parser.add_argument('--mode', default='review', choices=['review', 'general'])
+    parser.add_argument('--mode', default='review', choices=['review', 'general'], help='Paper type switch. Defaults to review/survey papers; pass --mode general only when you explicitly want non-review papers.')
     parser.add_argument('--selection-mode', default='standard', choices=['standard', 'full'])
     parser.add_argument('--topics', default=','.join(TOPIC_ORDER))
     parser.add_argument('--run-date', default=datetime.now(timezone(timedelta(hours=8))).date().isoformat())
@@ -1022,7 +1109,7 @@ def main() -> int:
     manifest_data = json.loads(manifest_path.read_text(encoding='utf-8'))
 
     run([sys.executable, str(PUBLISH_SCRIPT), str(manifest_path)], cwd=REPO_ROOT, timeout=600)
-    git_result = git_commit_push(REPO_ROOT, args.run_date, push=not args.skip_push)
+    git_result = git_commit_push(REPO_ROOT, args.run_date, args.mode, push=not args.skip_push)
     processed_update = {'updated': False, 'reason': 'processed paper registry updates only after a successful git push'}
     if git_result.get('pushed'):
         processed_ids = load_processed_ids()
