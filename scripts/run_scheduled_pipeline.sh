@@ -15,6 +15,7 @@ WORKSPACE="${WORKSPACE:-/tmp/edge-ai-pipeline-$RUN_DATE}"
 MAX_PARALLEL="${MAX_PARALLEL:-2}"
 SKIP_YOUTUBE="${SKIP_YOUTUBE:-0}"
 SKIP_PUSH="${SKIP_PUSH:-0}"
+PREFER_TOP_TIER="${PREFER_TOP_TIER:-0}"
 
 cmd=(python3 scripts/run_notebooklm_pipeline.py --mode "$PAPER_MODE" --run-date "$RUN_DATE" --workspace "$WORKSPACE" --max-parallel "$MAX_PARALLEL")
 
@@ -24,6 +25,9 @@ fi
 if [[ "$SKIP_PUSH" == "1" ]]; then
   cmd+=(--skip-push)
 fi
+if [[ "$PREFER_TOP_TIER" == "1" ]]; then
+  cmd+=(--prefer-top-tier)
+fi
 
-printf 'Running scheduled pipeline with PAPER_MODE=%s RUN_DATE=%s\n' "$PAPER_MODE" "$RUN_DATE"
+printf 'Running scheduled pipeline with PAPER_MODE=%s RUN_DATE=%s PREFER_TOP_TIER=%s\n' "$PAPER_MODE" "$RUN_DATE" "$PREFER_TOP_TIER"
 exec "${cmd[@]}"

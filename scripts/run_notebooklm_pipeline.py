@@ -56,6 +56,17 @@ PROCESSED_PAPERS_PATH = HERMES_HOME / 'papers' / 'processed_papers.json'
 TRADITIONAL_CHINESE_HINTS = set('繁體學術論點網頁應為於與機體臺灣這個後續優勢風險關鍵研究實驗結果比較應用導致對應設備裝置發現說明類別來源發表年份作者連結報告影片')
 SIMPLIFIED_CHINESE_HINTS = set('简体学习术点网页应为于与机体台湾这个后续优势风险关键研究实验结果比较应用导致对应设备装置发现说明类别来源发表年份作者连结报告影片')
 S2T_CONVERTER = OpenCC('s2twp') if OpenCC else None
+TOP_TIER_VENUE_KEYWORDS = [
+    'nature', 'science', 'cell', 'ieee transactions', 'ieee journal', 'acm transactions',
+    'communications surveys', 'proceedings of the ieee', 'usenix security', 'ndss',
+    'ieee symposium on security and privacy', 'ccs', 'neurips', 'icml', 'iclr',
+    'aaai', 'ijcai', 'cvpr', 'eccv', 'iccv', 'acl', 'emnlp', 'naacl', 'kdd', 'www',
+]
+MID_TIER_VENUE_KEYWORDS = [
+    'ieee access', 'future generation computer systems', 'cluster computing',
+    'journal of cloud computing', 'computer communications', 'sensors',
+    'internet of things', 'springer', 'elsevier', 'acm computing surveys',
+]
 REVIEW_FALLBACK_QUERIES = {
     'edge-ai': [
         'edge ai review',
@@ -383,7 +394,29 @@ def is_recent_duplicate_title(title: str, recent_titles: list[str]) -> bool:
     return any(normalized == normalize_paper_identity(recent) for recent in recent_titles)
 
 
-def heuristic_selection_breakdown(paper: dict[str, Any], mode: str, recent_titles: list[str]) -> dict[str, Any]:
+def venue_tier_preference_score(paper: dict[str, Any]) -> dict[str, Any]:
+    venue = (paper.get('venue') or '').lower()
+    source = (paper.get('source') or '').lower()
+    hay = f'{venue} {source}'
+    score = 45.0
+    matched_top = [kw for kw in TOP_TIER_VENUE_KEYWORDS if kw in hay]
+    matched_mid = [kw for kw in MID_TIER_VENUE_KEYWORDS if kw in hay]
+    if matched_top:
+        score = 95.0
+    elif matched_mid:
+        score = 72.0
+    elif source in {'ieee', 'acm', 'springer', 'elsevier', 'usenix'}:
+        score = 65.0
+    elif source in {'arxiv', 'dblp-open'} or 'arxiv' in hay:
+        score = 35.0
+    return {
+        'score': round(score, 2),
+        'matched_top': matched_top[:5],
+        'matched_mid': matched_mid[:5],
+    }
+
+
+def heuristic_selection_breakdown(paper: dict[str, Any], mode: str, recent_titles: list[str], prefer_top_tier: bool = False) -> dict[str, Any]:
     title = (paper.get('title') or '').lower()
     abstract = (paper.get('abstract') or '').lower()
     hay = f'{title} {abstract}'
@@ -427,8 +460,32 @@ def heuristic_selection_breakdown(paper: dict[str, Any], mode: str, recent_title
     except Exception:
         pass
 
+    venue_pref = venue_tier_preference_score(paper)
+    weights = {
+        'credibility': 0.35,
+        'review_fit': 0.2,
+        'reader_value': 0.2,
+        'novelty': 0.15,
+        'recency': 0.1,
+        'venue_pref': 0.0,
+    }
+    if prefer_top_tier:
+        weights.update({
+            'credibility': 0.3,
+            'review_fit': 0.18,
+            'reader_value': 0.16,
+            'novelty': 0.12,
+            'recency': 0.09,
+            'venue_pref': 0.15,
+        })
+
     final_score = round(
-        credibility * 0.35 + review_fit * 0.2 + reader_value * 0.2 + novelty * 0.15 + recency * 0.1,
+        credibility * weights['credibility']
+        + review_fit * weights['review_fit']
+        + reader_value * weights['reader_value']
+        + novelty * weights['novelty']
+        + recency * weights['recency']
+        + venue_pref['score'] * weights['venue_pref'],
         2,
     )
     return {
@@ -437,11 +494,13 @@ def heuristic_selection_breakdown(paper: dict[str, Any], mode: str, recent_title
         'reader_value': round(min(reader_value, 100.0), 2),
         'novelty': round(novelty, 2),
         'recency': round(recency, 2),
+        'venue_pref': venue_pref,
+        'prefer_top_tier': prefer_top_tier,
         'final_score': final_score,
     }
 
 
-def llm_evaluate_topic_candidates(topic: str, mode: str, candidates: list[dict[str, Any]], recent_titles: list[str]) -> dict[str, Any] | None:
+def llm_evaluate_topic_candidates(topic: str, mode: str, candidates: list[dict[str, Any]], recent_titles: list[str], prefer_top_tier: bool = False) -> dict[str, Any] | None:
     shortlist = []
     for idx, paper in enumerate(candidates[:6]):
         shortlist.append({
@@ -456,12 +515,15 @@ def llm_evaluate_topic_candidates(topic: str, mode: str, candidates: list[dict[s
             'abstract': (paper.get('abstract', '') or '')[:1200],
         })
     prompt = (
-        'You are ranking paper candidates for the edge-ai-papers website. '\
-        'Choose the single best candidate for a high-value, high-credibility article. '\
-        'Balance credibility, review quality, usefulness to readers, and differentiation from recently published reports. '\
-        'When mode=review, strongly prefer substantial survey/review/overview/taxonomy papers.\n\n'
+        'You are ranking paper candidates for the edge-ai-papers website. '
+        'Choose the single best candidate for a high-value, high-credibility article. '
+        'Balance credibility, review quality, usefulness to readers, and differentiation from recently published reports. '
+        'When mode=review, strongly prefer substantial survey/review/overview/taxonomy papers. '
+        f'prefer_top_tier={prefer_top_tier}. '
+        'If prefer_top_tier=true, add a stronger bias toward formal journals and top-tier conferences; otherwise keep venue prestige as a light secondary signal only.\n\n'
         f'Topic: {topic}\n'
         f'Mode: {mode}\n'
+        f'Prefer top tier venues: {prefer_top_tier}\n'
         f'Recent published titles for novelty comparison: {json.dumps(recent_titles[:20], ensure_ascii=False)}\n\n'
         'Return JSON only with this exact schema:\n'
         '{\n'
@@ -518,11 +580,11 @@ def write_topic_skip_report(selection_dir: Path, topic: str, mode: str, reason: 
     return str(path)
 
 
-def choose_best_paper(topic: str, mode: str, papers: list[dict[str, Any]], recent_titles: list[str], selection_dir: Path, selection_mode: str = 'standard') -> dict[str, Any]:
+def choose_best_paper(topic: str, mode: str, papers: list[dict[str, Any]], recent_titles: list[str], selection_dir: Path, selection_mode: str = 'standard', prefer_top_tier: bool = False) -> dict[str, Any]:
     enriched = []
     for paper in papers:
         item = dict(paper)
-        item['_heuristic_selection'] = heuristic_selection_breakdown(item, mode, recent_titles)
+        item['_heuristic_selection'] = heuristic_selection_breakdown(item, mode, recent_titles, prefer_top_tier=prefer_top_tier)
         enriched.append(item)
     ranked = sorted(
         enriched,
@@ -535,10 +597,11 @@ def choose_best_paper(topic: str, mode: str, papers: list[dict[str, Any]], recen
         reverse=True,
     )
 
-    llm_result = llm_evaluate_topic_candidates(topic, mode, ranked, recent_titles)
+    llm_result = llm_evaluate_topic_candidates(topic, mode, ranked, recent_titles, prefer_top_tier=prefer_top_tier)
     report = {
         'topic': topic,
         'mode': mode,
+        'prefer_top_tier': prefer_top_tier,
         'generated_at': datetime.now(timezone(timedelta(hours=8))).isoformat(),
         'recent_titles_considered': recent_titles[:20],
         'candidates': [],
@@ -578,6 +641,7 @@ def choose_best_paper(topic: str, mode: str, papers: list[dict[str, Any]], recen
     chosen = dict(ranked[chosen_idx])
     chosen['_selection'] = {
         'selection_mode': selection_mode,
+        'prefer_top_tier': prefer_top_tier,
         'method': selection_method,
         'reason': selection_reason,
         'report_path': str(report_path),
@@ -587,7 +651,7 @@ def choose_best_paper(topic: str, mode: str, papers: list[dict[str, Any]], recen
     return chosen
 
 
-def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search: int = 40, candidates_per_topic: int = 8, selection_mode: str = 'standard') -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search: int = 40, candidates_per_topic: int = 8, selection_mode: str = 'standard', prefer_top_tier: bool = False) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     selected = []
     skipped_topics = []
     processed_ids = load_processed_ids()
@@ -638,7 +702,7 @@ def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search:
                 'report_path': write_topic_skip_report(selection_dir, topic, mode, reason, recent_titles),
             })
             continue
-        chosen = choose_best_paper(topic, mode, papers, recent_titles, selection_dir, selection_mode)
+        chosen = choose_best_paper(topic, mode, papers, recent_titles, selection_dir, selection_mode, prefer_top_tier=prefer_top_tier)
         selected.append(chosen)
         selected_ids.add(paper_identity(chosen))
         recent_titles.insert(0, chosen.get('title', ''))
@@ -1069,6 +1133,7 @@ def main() -> int:
     parser.add_argument('--discover-only', action='store_true')
     parser.add_argument('--skip-youtube', action='store_true')
     parser.add_argument('--skip-push', action='store_true')
+    parser.add_argument('--prefer-top-tier', action='store_true', help='Optional stronger bias toward formal journals and top-tier conference venues during selection. Default is off.')
     args = parser.parse_args()
 
     topics = [t.strip() for t in args.topics.split(',') if t.strip()]
@@ -1078,12 +1143,13 @@ def main() -> int:
         shutil.rmtree(work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    selected, skipped_topics = select_papers(args.mode, topics, work_dir, selection_mode=args.selection_mode)
+    selected, skipped_topics = select_papers(args.mode, topics, work_dir, selection_mode=args.selection_mode, prefer_top_tier=args.prefer_top_tier)
     selection_summary_path = write_selection_summary(selected, skipped_topics, work_dir)
     if args.discover_only or not selected:
         print(json.dumps({
             'mode': args.mode,
             'selection_mode': args.selection_mode,
+            'prefer_top_tier': args.prefer_top_tier,
             'run_date': args.run_date,
             'selected': selected,
             'skipped_topics': skipped_topics,
@@ -1130,6 +1196,7 @@ def main() -> int:
         'ok': True,
         'mode': args.mode,
         'selection_mode': args.selection_mode,
+        'prefer_top_tier': args.prefer_top_tier,
         'run_date': args.run_date,
         'workspace': str(work_dir),
         'manifest': str(manifest_path),
