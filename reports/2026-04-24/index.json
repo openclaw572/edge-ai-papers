@@ -1,0 +1,49 @@
+{
+  "date": "2026-04-24",
+  "paperCount": 3,
+  "paperType": "review",
+  "papers": [
+    {
+      "id": "paper-1",
+      "category": "Edge AI",
+      "title": "Federated Continual Learning for Edge-AI: A Comprehensive Survey",
+      "path": "paper-1-edge-ai-federated-continual-learning-survey.md",
+      "link": "https://arxiv.org/abs/2411.13740",
+      "type": "REVIEW PAPER",
+      "youtubeUrl": "https://www.youtube.com/watch?v=A2S_0oSzE50"
+    },
+    {
+      "id": "paper-2",
+      "category": "Edge AI Security",
+      "title": "Decentralized Federated Learning: A Survey on Security and Privacy",
+      "path": "paper-2-edge-ai-security-decentralized-federated-learning-security-privacy.md",
+      "link": "https://arxiv.org/abs/2401.17319",
+      "type": "REVIEW PAPER",
+      "youtubeUrl": "https://www.youtube.com/watch?v=sVW-f6kM1Ag"
+    },
+    {
+      "id": "paper-3",
+      "category": "Embedded Systems Security",
+      "title": "A Survey on RISC-V Security: Hardware and Architecture",
+      "path": "paper-3-embedded-systems-security-risc-v-security-hardware-architecture.md",
+      "link": "https://arxiv.org/abs/2107.04175",
+      "type": "REVIEW PAPER",
+      "youtubeUrl": "https://www.youtube.com/watch?v=gJuCLmzHth4"
+    }
+  ],
+  "notebookLM": {
+    "notebookId": "120c56c3-8137-410a-9308-6f27a3c26057",
+    "notebookUrl": "https://notebooklm.google.com/notebook/120c56c3-8137-410a-9308-6f27a3c26057",
+    "reportArtifactIds": {
+      "paper-1": "fc2fe0d0-2c42-4481-9280-b0da248f7a67",
+      "paper-2": "a9e636a4-ee41-4ce8-9be7-188661b29895",
+      "paper-3": "03d79d6b-9675-4183-bd0b-b6ef9163753c"
+    },
+    "videoArtifactIds": {
+      "paper-1": "eec1ddf6-eb47-4791-8f53-f469f15f63b5",
+      "paper-2": "562514b5-1858-468f-8b3f-40125fdf36cf",
+      "paper-3": "00ac43eb-74d5-4c9c-bb19-01fc79daffcc"
+    }
+  },
+  "generatedAt": "2026-04-24T11:00:00+08:00"
+}

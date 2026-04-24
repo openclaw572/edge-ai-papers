@@ -1,6 +1,41 @@
 {
-  "lastUpdated": "2026-04-23",
+  "lastUpdated": "2026-04-24",
   "dates": [
+    {
+      "date": "2026-04-24",
+      "path": "2026-04-24/index.json",
+      "paperCount": 3,
+      "paperType": "review",
+      "papers": [
+        {
+          "title": "Federated Continual Learning for Edge-AI: A Comprehensive Survey",
+          "tags": [
+            "Edge AI",
+            "Review Paper",
+            "Federated Learning",
+            "Continual Learning"
+          ]
+        },
+        {
+          "title": "Decentralized Federated Learning: A Survey on Security and Privacy",
+          "tags": [
+            "Edge AI Security",
+            "Review Paper",
+            "Decentralized Federated Learning",
+            "Privacy"
+          ]
+        },
+        {
+          "title": "A Survey on RISC-V Security: Hardware and Architecture",
+          "tags": [
+            "Embedded Systems Security",
+            "Review Paper",
+            "RISC-V",
+            "Hardware Security"
+          ]
+        }
+      ]
+    },
     {
       "date": "2026-04-23",
       "path": "2026-04-23/index.json",
