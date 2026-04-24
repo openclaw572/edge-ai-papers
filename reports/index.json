@@ -1,6 +1,38 @@
 {
-  "lastUpdated": "2026-04-24",
+  "lastUpdated": "2026-04-25",
   "dates": [
+    {
+      "date": "2026-04-25",
+      "path": "2026-04-25/index.json",
+      "paperCount": 3,
+      "paperType": "review",
+      "papers": [
+        {
+          "title": "A Machine Learning-oriented Survey on Tiny Machine Learning",
+          "tags": [
+            "Edge AI",
+            "Survey",
+            "Review Paper"
+          ]
+        },
+        {
+          "title": "Edge Learning for 6G-enabled Internet of Things: A Comprehensive Survey of Vulnerabilities, Datasets, and Defenses",
+          "tags": [
+            "Edge AI Security",
+            "Survey",
+            "Review Paper"
+          ]
+        },
+        {
+          "title": "A Comprehensive Survey on the Implementations, Attacks, and Countermeasures of the Current NIST Lightweight Cryptography Standard",
+          "tags": [
+            "Embedded Systems Security",
+            "Survey",
+            "Review Paper"
+          ]
+        }
+      ]
+    },
     {
       "date": "2026-04-24",
       "path": "2026-04-24/index.json",

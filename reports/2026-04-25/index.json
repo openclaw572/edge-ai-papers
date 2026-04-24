@@ -1,0 +1,38 @@
+{
+  "date": "2026-04-25",
+  "paperCount": 3,
+  "paperType": "review",
+  "papers": [
+    {
+      "id": "paper-1",
+      "category": "Edge AI",
+      "title": "A Machine Learning-oriented Survey on Tiny Machine Learning",
+      "path": "paper-1-edge-ai-machine-learning-oriented-tinyml-survey.md",
+      "link": "https://arxiv.org/pdf/2309.11932",
+      "type": "SURVEY",
+      "youtubeUrl": "https://www.youtube.com/watch?v=WGAjCGIDp6c"
+    },
+    {
+      "id": "paper-2",
+      "category": "Edge AI Security",
+      "title": "Edge Learning for 6G-enabled Internet of Things: A Comprehensive Survey of Vulnerabilities, Datasets, and Defenses",
+      "path": "paper-2-edge-ai-security-6g-iot-edge-learning-survey.md",
+      "link": "https://arxiv.org/pdf/2306.10309",
+      "type": "SURVEY",
+      "youtubeUrl": "https://www.youtube.com/watch?v=63YwfMKErdQ"
+    },
+    {
+      "id": "paper-3",
+      "category": "Embedded Systems Security",
+      "title": "A Comprehensive Survey on the Implementations, Attacks, and Countermeasures of the Current NIST Lightweight Cryptography Standard",
+      "path": "paper-3-embedded-systems-security-nist-lightweight-crypto-survey.md",
+      "link": "https://arxiv.org/pdf/2304.06222",
+      "type": "SURVEY",
+      "youtubeUrl": "https://www.youtube.com/watch?v=LqUwwNyCOPE"
+    }
+  ],
+  "notebookLM": {
+    "notebookId": "a226499d-0f8a-494a-a89e-fb78a9090ec6"
+  },
+  "generatedAt": "2026-04-25T00:00:00+08:00"
+}

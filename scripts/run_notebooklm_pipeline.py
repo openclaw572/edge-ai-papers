@@ -232,8 +232,13 @@ def _translate_segments_to_traditional_chinese(text: str) -> str:
         if not buffer:
             return
         segment = '\n'.join(buffer).strip('\n')
-        translated = translator.translate(segment) if segment.strip() else segment
-        translated_lines.extend(translated.splitlines())
+        if segment.strip():
+            translated = translator.translate(segment)
+            if not translated:
+                translated = convert_to_traditional_chinese(segment)
+        else:
+            translated = segment
+        translated_lines.extend(str(translated).splitlines())
         buffer = []
 
     for line in lines:
