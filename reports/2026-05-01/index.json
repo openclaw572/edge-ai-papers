@@ -1,0 +1,55 @@
+{
+  "date": "2026-05-01",
+  "paperCount": 3,
+  "paperType": "review",
+  "papers": [
+    {
+      "id": "paper-1",
+      "category": "Edge AI",
+      "title": "Edge Intelligence: Paving the Last Mile of Artificial Intelligence with Edge Computing",
+      "path": "paper-1-edge-ai-edge-intelligence-paving-the-last-mile-of-artificial-intelligence-with-edge-computing.md",
+      "link": "https://arxiv.org/pdf/1905.10083v1.pdf",
+      "type": "Survey",
+      "youtubeUrl": "https://www.youtube.com/watch?v=IDrfXLgv2hM"
+    },
+    {
+      "id": "paper-2",
+      "category": "Edge AI Security",
+      "title": "A Survey of Trustworthy Federated Learning with Perspectives on Security, Robustness, and Privacy",
+      "path": "paper-2-edge-ai-security-trustworthy-federated-learning-security-robustness-and-privacy.md",
+      "link": "https://arxiv.org/pdf/2302.10637v1.pdf",
+      "type": "Survey",
+      "youtubeUrl": "https://www.youtube.com/watch?v=jDKqPVwmZ6w"
+    },
+    {
+      "id": "paper-3",
+      "category": "Embedded Systems Security",
+      "title": "Physical Side-Channel Attacks on Embedded Neural Networks: A Survey",
+      "path": "paper-3-embedded-systems-security-physical-side-channel-attacks-on-embedded-neural-networks.md",
+      "link": "https://arxiv.org/pdf/2110.11290v1.pdf",
+      "type": "Survey",
+      "youtubeUrl": "https://www.youtube.com/watch?v=u1SvRW_rbkQ"
+    }
+  ],
+  "notebookLM": {
+    "notebookId": "5ec3d994-91f3-4b0c-9618-256d2605b4b3",
+    "videoNotebooks": [
+      {
+        "category": "Edge AI",
+        "notebookId": "59a65b0b-b6b6-4e89-861c-fa16089461ef",
+        "artifactId": "20ad2bc9-612c-447e-9fbe-61af99ee1183"
+      },
+      {
+        "category": "Edge AI Security",
+        "notebookId": "36f8ee20-7833-44a1-89d9-b3d2d281c0c7",
+        "artifactId": "7308dd9d-0fc4-485b-bafb-20081aaef53a"
+      },
+      {
+        "category": "Embedded Systems Security",
+        "notebookId": "ec91a341-e072-42f2-b5e8-1326c596083f",
+        "artifactId": "61f778f4-4b67-4b4f-a831-777acedd5e39"
+      }
+    ]
+  },
+  "generatedAt": "2026-05-01T00:21:03+08:00"
+}

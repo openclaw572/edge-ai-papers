@@ -1,6 +1,38 @@
 {
-  "lastUpdated": "2026-04-25",
+  "lastUpdated": "2026-05-01",
   "dates": [
+    {
+      "date": "2026-05-01",
+      "path": "2026-05-01/index.json",
+      "paperCount": 3,
+      "paperType": "review",
+      "papers": [
+        {
+          "title": "Edge Intelligence: Paving the Last Mile of Artificial Intelligence with Edge Computing",
+          "tags": [
+            "Edge AI",
+            "Survey",
+            "Review Paper"
+          ]
+        },
+        {
+          "title": "A Survey of Trustworthy Federated Learning with Perspectives on Security, Robustness, and Privacy",
+          "tags": [
+            "Edge AI Security",
+            "Survey",
+            "Review Paper"
+          ]
+        },
+        {
+          "title": "Physical Side-Channel Attacks on Embedded Neural Networks: A Survey",
+          "tags": [
+            "Embedded Systems Security",
+            "Survey",
+            "Review Paper"
+          ]
+        }
+      ]
+    },
     {
       "date": "2026-04-25",
       "path": "2026-04-25/index.json",
