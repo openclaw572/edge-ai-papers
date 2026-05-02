@@ -809,29 +809,37 @@ def wait_and_download_video(notebook_url: str, out_dir: Path, profile: str) -> P
     return Path(m.group(1).strip())
 
 
-def generate_fallback_video(markdown_path: Path, out_dir: Path, paper: dict[str, Any], category: str, reason: str) -> Path:
+def generate_fallback_video(markdown_path: Path, paper_pdf: Path, out_dir: Path, paper: dict[str, Any], category: str, reason: str) -> tuple[Path, str]:
     """Generate a local MP4 when NotebookLM video download is unavailable.
 
     This prevents the publication pipeline from stopping on Google-hosted
     NotebookLM media URL failures (for example rd-notebooklm 404s). The output
-    is a simple narrated slide video built from the already-exported markdown.
+    is a simple narrated slide video. It prefers the downloaded full paper PDF
+    text and falls back to the already-exported markdown report if PDF text
+    extraction is unavailable or incomplete.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     fallback_path = out_dir / 'fallback-video.mp4'
-    run([
+    res = run([
         sys.executable,
         str(FALLBACK_VIDEO_SCRIPT),
         '--markdown', str(markdown_path),
+        '--paper-pdf', str(paper_pdf),
         '--output', str(fallback_path),
         '--title', paper['title'],
         '--category', category,
     ], timeout=1200)
+    source_kind = 'unknown'
+    try:
+        source_kind = json.loads(res.stdout).get('source_kind') or source_kind
+    except Exception:
+        pass
     if not fallback_path.exists() or fallback_path.stat().st_size < 10_000:
         raise RuntimeError(f'Fallback video generation failed after NotebookLM video error: {reason}')
     head = fallback_path.read_bytes()[:16]
     if head[4:8] != b'ftyp':
         raise RuntimeError(f'Fallback video is not a valid MP4 after NotebookLM video error: {reason}; head={head!r}')
-    return fallback_path
+    return fallback_path, source_kind
 
 
 def delete_notebook(notebook_url: str, title_hint: str, profile: str) -> dict[str, Any]:
@@ -1077,6 +1085,7 @@ def process_one_paper(idx: int, paper: dict[str, Any], mode: str, work_dir: Path
                 video_path = None
                 video_status = 'skipped' if skip_youtube else 'pending'
                 video_error = None
+                fallback_video_source = None
                 youtube_url = None
                 if not skip_youtube:
                     try:
@@ -1093,15 +1102,16 @@ def process_one_paper(idx: int, paper: dict[str, Any], mode: str, work_dir: Path
                         else:
                             original_error = str(exc)
                             try:
-                                video_path = generate_fallback_video(
+                                video_path, fallback_video_source = generate_fallback_video(
                                     wrapped_md,
+                                    pdf_path,
                                     paper_dir / 'video',
                                     paper,
                                     category,
                                     original_error,
                                 )
                                 video_status = 'fallback_generated'
-                                video_error = f'NotebookLM video failed; generated fallback MP4 from markdown. Original error: {original_error}'
+                                video_error = f'NotebookLM video failed; generated fallback MP4 preferring full paper PDF text and falling back to markdown if needed. Original error: {original_error}'
                             except Exception as fallback_exc:
                                 video_status = 'failed'
                                 video_error = f'NotebookLM video failed: {original_error}; fallback video generation also failed: {fallback_exc}'
@@ -1127,6 +1137,8 @@ def process_one_paper(idx: int, paper: dict[str, Any], mode: str, work_dir: Path
                 }
                 if video_error:
                     result['video_error'] = video_error
+                if fallback_video_source:
+                    result['fallback_video_source'] = fallback_video_source
                 if youtube_url:
                     result['youtube_url'] = youtube_url
                 return result

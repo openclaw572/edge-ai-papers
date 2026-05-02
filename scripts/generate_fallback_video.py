@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Generate a fallback MP4 video from a markdown report.
+"""Generate a fallback MP4 video from paper text, falling back to markdown.
 
 This is used when NotebookLM creates a video artifact but the Google-hosted
 MP4/HLS/DASH URLs cannot be downloaded (for example rd-notebooklm 404s).
+The preferred source is the full paper PDF text; if the PDF cannot be read or
+looks incomplete, the script falls back to the generated markdown report.
 The generated video is intentionally simple but valid for YouTube upload:
 Traditional-Chinese narration from Edge TTS + slide-style text rendered by
 ffmpeg with a CJK font.
@@ -23,6 +25,11 @@ try:
     import edge_tts
 except ImportError as exc:  # pragma: no cover - runtime environment check
     raise SystemExit("edge_tts is required for fallback video generation") from exc
+
+try:
+    from deep_translator import GoogleTranslator
+except ImportError:  # pragma: no cover - optional quality improvement
+    GoogleTranslator = None
 
 DEFAULT_VOICE = "zh-TW-HsiaoChenNeural"
 DEFAULT_FONT = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
@@ -52,7 +59,7 @@ def strip_markdown(text: str) -> str:
 
 def split_sentences(text: str) -> list[str]:
     text = strip_markdown(text)
-    pieces = re.split(r"(?<=[。！？!?])\s*|\n+", text)
+    pieces = re.split(r"(?<=[。！？!?.;])\s*|\n+", text)
     out = []
     for piece in pieces:
         piece = re.sub(r"\s+", " ", piece).strip()
@@ -61,12 +68,75 @@ def split_sentences(text: str) -> list[str]:
     return out
 
 
-def build_narration(markdown: str, title: str, category: str, max_chars: int) -> str:
-    sentences = split_sentences(markdown)
+def extract_pdf_text(pdf_path: Path) -> str:
+    if not pdf_path.exists() or not shutil.which("pdftotext"):
+        return ""
+    result = subprocess.run(["pdftotext", "-layout", str(pdf_path), "-"], capture_output=True, text=True, timeout=180)
+    if result.returncode != 0:
+        return ""
+    text = re.sub(r"\f", "\n", result.stdout)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    return text
+
+
+def usable_full_paper_text(text: str) -> bool:
+    lowered = text.lower()
+    return len(text) >= 3000 and any(k in lowered for k in ["abstract", "introduction", "references"])
+
+
+def pick_full_paper_snippets(text: str, max_chars: int) -> str:
+    sections = []
+    patterns = [
+        ("摘要", r"(?is)\babstract\b[:\s]*(.{300,1800}?)(?=\n\s*(?:keywords|index terms|1\.?\s*introduction|introduction)\b)"),
+        ("研究動機與問題", r"(?is)(?:^|\n)\s*(?:1\.?\s*)?introduction\b[:\s]*(.{500,2200}?)(?=\n\s*(?:2\.?|related work|background|method|approach)\b)"),
+        ("結論與限制", r"(?is)(?:^|\n)\s*(?:conclusion|conclusions|discussion)\b[:\s]*(.{400,1800}?)(?=\n\s*(?:references|acknowledg|appendix)\b)"),
+    ]
+    for label, pattern in patterns:
+        m = re.search(pattern, text)
+        if m:
+            snippet = re.sub(r"\s+", " ", m.group(1)).strip()
+            sections.append(f"{label}：{snippet}")
+    if not sections:
+        sentences = split_sentences(text)[:18]
+        sections = sentences
+    raw = "\n".join(sections)[:max_chars]
+    return raw
+
+
+def maybe_translate_to_zh_tw(text: str) -> str:
+    # If the selected source is mostly English, translate the compact snippet for narration/slides.
+    ascii_letters = sum(ch.isascii() and ch.isalpha() for ch in text)
+    cjk = sum("\u4e00" <= ch <= "\u9fff" for ch in text)
+    if GoogleTranslator is None or ascii_letters < max(80, cjk * 2):
+        return text
+    chunks = textwrap.wrap(text, width=1200, break_long_words=False, replace_whitespace=False)[:3]
+    translated = []
+    try:
+        translator = GoogleTranslator(source="auto", target="zh-TW")
+        for chunk in chunks:
+            translated.append(translator.translate(chunk))
+        return "\n".join(x for x in translated if x).strip() or text
+    except Exception:
+        return text
+
+
+def load_preferred_source(markdown_path: Path, paper_pdf: Path | None, max_chars: int) -> tuple[str, str]:
+    if paper_pdf:
+        pdf_text = extract_pdf_text(paper_pdf)
+        if usable_full_paper_text(pdf_text):
+            snippets = pick_full_paper_snippets(pdf_text, max_chars=max_chars * 2)
+            return maybe_translate_to_zh_tw(snippets), "full_paper_pdf"
+    return markdown_path.read_text(encoding="utf-8"), "markdown_report"
+
+
+def build_narration(source_text: str, title: str, category: str, max_chars: int, source_kind: str) -> str:
+    sentences = split_sentences(source_text)
+    source_label = "論文全文" if source_kind == "full_paper_pdf" else "已生成的 Markdown 報告"
     lead = [
         f"本影片是 {category} 論文的備援影片摘要。",
         f"論文標題是：{title}。",
-        "以下整理研究動機、方法、主要結果、限制與應用場景。",
+        f"以下內容優先根據{source_label}整理研究動機、方法、主要結果、限制與應用場景。",
     ]
     body: list[str] = []
     current = sum(len(x) for x in lead)
@@ -89,10 +159,11 @@ def wrap_display_line(text: str, width: int = 28) -> list[str]:
     return textwrap.wrap(text, width=width, break_long_words=True, replace_whitespace=False) or [""]
 
 
-def make_slide_texts(markdown: str, title: str, category: str, max_slides: int = 6) -> list[str]:
-    headings = [h.strip(" #") for h in re.findall(r"^#{1,3}\s+(.+)$", markdown, flags=re.M)]
-    sentences = split_sentences(markdown)
-    slides = [f"{category}\n{title}\n\nNotebookLM 影片下載失敗時的自動備援影片"]
+def make_slide_texts(source_text: str, title: str, category: str, source_kind: str, max_slides: int = 6) -> list[str]:
+    headings = [h.strip(" #") for h in re.findall(r"^#{1,3}\s+(.+)$", source_text, flags=re.M)]
+    sentences = split_sentences(source_text)
+    source_label = "論文全文" if source_kind == "full_paper_pdf" else "Markdown 報告"
+    slides = [f"{category}\n{title}\n\nNotebookLM 影片下載失敗時的自動備援影片\n來源：{source_label}"]
     important = []
     for heading in headings:
         if 4 <= len(heading) <= 40 and heading not in important:
@@ -185,8 +256,9 @@ def validate_mp4(path: Path) -> dict[str, object]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generate a narrated fallback MP4 from a markdown report")
-    parser.add_argument("--markdown", required=True, type=Path)
+    parser = argparse.ArgumentParser(description="Generate a narrated fallback MP4 from paper text, falling back to markdown")
+    parser.add_argument("--markdown", required=True, type=Path, help="Generated markdown report used if full paper text is unavailable")
+    parser.add_argument("--paper-pdf", type=Path, default=None, help="Preferred full paper PDF source for fallback narration/slides")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--title", required=True)
     parser.add_argument("--category", default="Edge AI")
@@ -199,9 +271,9 @@ def main() -> int:
         raise SystemExit("ffmpeg and ffprobe are required")
     if not Path(args.font).exists():
         raise SystemExit(f"CJK font not found: {args.font}")
-    markdown = args.markdown.read_text(encoding="utf-8")
-    narration = build_narration(markdown, args.title, args.category, args.max_chars)
-    slides = make_slide_texts(markdown, args.title, args.category)
+    source_text, source_kind = load_preferred_source(args.markdown, args.paper_pdf, args.max_chars)
+    narration = build_narration(source_text, args.title, args.category, args.max_chars, source_kind)
+    slides = make_slide_texts(source_text, args.title, args.category, source_kind)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     audio = args.output.with_suffix(".fallback-tts.mp3")
     narration_path = args.output.with_suffix(".fallback-narration.txt")
@@ -209,7 +281,7 @@ def main() -> int:
     asyncio.run(synthesize_tts(narration, audio, args.voice))
     render_video(audio, slides, args.output, args.font)
     result = validate_mp4(args.output)
-    result.update({"audio": str(audio), "narration": str(narration_path), "slides": len(slides), "voice": args.voice})
+    result.update({"audio": str(audio), "narration": str(narration_path), "slides": len(slides), "voice": args.voice, "source_kind": source_kind})
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
 
