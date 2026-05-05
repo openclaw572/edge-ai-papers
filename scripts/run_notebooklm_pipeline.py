@@ -854,6 +854,37 @@ def export_report_markdown(notebook_url: str, title_hint: str, out_path: Path, p
     return out_path
 
 
+def validate_mp4(path: Path, label: str) -> None:
+    if not path.exists() or path.stat().st_size < 10_000:
+        raise RuntimeError(f'{label} missing or too small: {path}')
+    head = path.read_bytes()[:16]
+    if head[4:8] != b'ftyp':
+        raise RuntimeError(f'{label} is not a valid MP4 file: head={head!r}')
+
+
+def notebooklm_video_download_cmd(notebook_id: str, artifact_id: str, out_path: Path) -> list[str]:
+    """Build the most reliable NotebookLM video download command.
+
+    The system `nlm` is currently installed from notebooklm-mcp-cli 0.5.x and can
+    hang/fail on `download video` for completed artifacts. Running the current
+    NotebookLM CLI through uvx with Python 3.12 uses the newer downloader that
+    successfully retrieves the Google-hosted MP4. Operators may override with
+    NOTEBOOKLM_VIDEO_DOWNLOAD_BACKEND=nlm if needed for debugging.
+    """
+    backend = os.getenv('NOTEBOOKLM_VIDEO_DOWNLOAD_BACKEND', 'uvx').strip().lower()
+    if backend == 'nlm' or not shutil.which('uvx'):
+        return ['nlm', 'download', 'video', notebook_id, '--id', artifact_id, '--output', str(out_path), '--no-progress']
+    return [
+        'uvx',
+        '--python', '3.12',
+        '--from', os.getenv('NOTEBOOKLM_MCP_CLI_PACKAGE', 'notebooklm-mcp-cli'),
+        'nlm', 'download', 'video', notebook_id,
+        '--id', artifact_id,
+        '--output', str(out_path),
+        '--no-progress',
+    ]
+
+
 def wait_and_download_video(notebook_id: str, artifact_id: str, out_dir: Path, profile: str) -> Path:
     """Wait patiently for the native NotebookLM video, then download it.
 
@@ -866,9 +897,8 @@ def wait_and_download_video(notebook_id: str, artifact_id: str, out_dir: Path, p
     wait_timeout = int(os.getenv('NOTEBOOKLM_VIDEO_WAIT_TIMEOUT_SECONDS', '3600'))
     _wait_for_artifact(notebook_id, artifact_id, 'video', profile, timeout_sec=wait_timeout, poll_sec=30)
     out_path = out_dir / 'video.mp4'
-    run(['nlm', 'download', 'video', notebook_id, '--id', artifact_id, '--output', str(out_path), '--no-progress'], timeout=1200)
-    if not out_path.exists():
-        raise RuntimeError(f'NotebookLM video download did not produce output file: {out_path}')
+    run(notebooklm_video_download_cmd(notebook_id, artifact_id, out_path), timeout=1800)
+    validate_mp4(out_path, 'NotebookLM video download')
     return out_path
 
 
@@ -897,11 +927,7 @@ def generate_fallback_video(markdown_path: Path, paper_pdf: Path, out_dir: Path,
         source_kind = json.loads(res.stdout).get('source_kind') or source_kind
     except Exception:
         pass
-    if not fallback_path.exists() or fallback_path.stat().st_size < 10_000:
-        raise RuntimeError(f'Fallback video generation failed after NotebookLM video error: {reason}')
-    head = fallback_path.read_bytes()[:16]
-    if head[4:8] != b'ftyp':
-        raise RuntimeError(f'Fallback video is not a valid MP4 after NotebookLM video error: {reason}; head={head!r}')
+    validate_mp4(fallback_path, 'Fallback video')
     return fallback_path, source_kind
 
 
