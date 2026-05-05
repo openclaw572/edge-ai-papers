@@ -16,6 +16,9 @@ MAX_PARALLEL="${MAX_PARALLEL:-2}"
 SKIP_YOUTUBE="${SKIP_YOUTUBE:-0}"
 SKIP_PUSH="${SKIP_PUSH:-0}"
 PREFER_TOP_TIER="${PREFER_TOP_TIER:-0}"
+# Wait for native NotebookLM videos instead of shortcutting to fallback.
+# Fallback MP4 is only for real generation/download errors or an extended unrecoverable wait.
+export NOTEBOOKLM_VIDEO_WAIT_TIMEOUT_SECONDS="${NOTEBOOKLM_VIDEO_WAIT_TIMEOUT_SECONDS:-3600}"
 
 cmd=(python3 scripts/run_notebooklm_pipeline.py --mode "$PAPER_MODE" --run-date "$RUN_DATE" --workspace "$WORKSPACE" --max-parallel "$MAX_PARALLEL")
 

@@ -855,8 +855,16 @@ def export_report_markdown(notebook_url: str, title_hint: str, out_path: Path, p
 
 
 def wait_and_download_video(notebook_id: str, artifact_id: str, out_dir: Path, profile: str) -> Path:
+    """Wait patiently for the native NotebookLM video, then download it.
+
+    User preference: do not shortcut to the local fallback just because NotebookLM
+    video generation is slow. The fallback MP4 is reserved for real generation
+    failures, an extended unrecoverable timeout, or download errors after the
+    NotebookLM artifact is expected to be available.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
-    _wait_for_artifact(notebook_id, artifact_id, 'video', profile, timeout_sec=420, poll_sec=20)
+    wait_timeout = int(os.getenv('NOTEBOOKLM_VIDEO_WAIT_TIMEOUT_SECONDS', '3600'))
+    _wait_for_artifact(notebook_id, artifact_id, 'video', profile, timeout_sec=wait_timeout, poll_sec=30)
     out_path = out_dir / 'video.mp4'
     run(['nlm', 'download', 'video', notebook_id, '--id', artifact_id, '--output', str(out_path), '--no-progress'], timeout=1200)
     if not out_path.exists():
