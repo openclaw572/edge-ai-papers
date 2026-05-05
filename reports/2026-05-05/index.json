@@ -1,0 +1,36 @@
+{
+  "date": "2026-05-05",
+  "paperCount": 3,
+  "paperType": "review",
+  "papers": [
+    {
+      "id": "paper-1",
+      "category": "Edge AI",
+      "title": "Brain-inspired AI for Edge Intelligence: a systematic review",
+      "path": "paper-1-edge-ai-brain-inspired-ai-for-edge-intelligence-a-systematic-review.md",
+      "link": "https://arxiv.org/pdf/2603.26722.pdf",
+      "type": "REVIEW PAPER",
+      "youtubeUrl": "https://www.youtube.com/watch?v=6fIOyo2tyF0"
+    },
+    {
+      "id": "paper-2",
+      "category": "Edge AI Security",
+      "title": "Decentralised Trust and Security Mechanisms for IoT Networks at the Edge: A Comprehensive Review",
+      "path": "paper-2-edge-ai-security-decentralised-trust-and-security-mechanisms-for-iot-networks-at-the-edge-a-compr.md",
+      "link": "https://arxiv.org/pdf/2604.17179.pdf",
+      "type": "REVIEW PAPER",
+      "youtubeUrl": "https://www.youtube.com/watch?v=kVcPWx8nGJQ"
+    },
+    {
+      "id": "paper-3",
+      "category": "Embedded Systems Security",
+      "title": "A Review on the Security Vulnerabilities of the IoMT against Malware Attacks and DDoS",
+      "path": "paper-3-embedded-systems-security-a-review-on-the-security-vulnerabilities-of-the-iomt-against-malware-attacks-and.md",
+      "link": "https://arxiv.org/pdf/2501.07703.pdf",
+      "type": "REVIEW PAPER",
+      "youtubeUrl": "https://www.youtube.com/watch?v=L07tSr8KXxY"
+    }
+  ],
+  "notebookLM": {},
+  "generatedAt": "2026-05-05T01:48:17.185727+08:00"
+}

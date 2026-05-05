@@ -1,6 +1,35 @@
 {
-  "lastUpdated": "2026-05-01",
+  "lastUpdated": "2026-05-05",
   "dates": [
+    {
+      "date": "2026-05-05",
+      "path": "2026-05-05/index.json",
+      "paperCount": 3,
+      "paperType": "review",
+      "papers": [
+        {
+          "title": "Brain-inspired AI for Edge Intelligence: a systematic review",
+          "tags": [
+            "Edge AI",
+            "Review Paper"
+          ]
+        },
+        {
+          "title": "Decentralised Trust and Security Mechanisms for IoT Networks at the Edge: A Comprehensive Review",
+          "tags": [
+            "Edge AI Security",
+            "Review Paper"
+          ]
+        },
+        {
+          "title": "A Review on the Security Vulnerabilities of the IoMT against Malware Attacks and DDoS",
+          "tags": [
+            "Embedded Systems Security",
+            "Review Paper"
+          ]
+        }
+      ]
+    },
     {
       "date": "2026-05-01",
       "path": "2026-05-01/index.json",
