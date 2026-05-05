@@ -19,6 +19,7 @@ import re
 import shutil
 import subprocess
 import textwrap
+import unicodedata
 from pathlib import Path
 
 try:
@@ -154,16 +155,79 @@ def build_narration(source_text: str, title: str, category: str, max_chars: int,
     return "\n".join(lead + body).strip() + "\n"
 
 
-def wrap_display_line(text: str, width: int = 28) -> list[str]:
-    # textwrap is byte/character based; for CJK this gives acceptable slide lines.
-    return textwrap.wrap(text, width=width, break_long_words=True, replace_whitespace=False) or [""]
+def display_width(text: str) -> int:
+    """Approximate rendered width in monospace/CJK cells for safe ffmpeg wrapping."""
+    width = 0
+    for ch in text:
+        width += 2 if unicodedata.east_asian_width(ch) in {"F", "W"} else 1
+    return width
+
+
+def wrap_display_line(text: str, width: int = 36) -> list[str]:
+    """Wrap text to a conservative visual cell width so drawtext stays inside the frame."""
+    text = re.sub(r"\s+", " ", text).strip()
+    if not text:
+        return [""]
+    lines: list[str] = []
+    current = ""
+    current_width = 0
+    for ch in text:
+        ch_width = 2 if unicodedata.east_asian_width(ch) in {"F", "W"} else 1
+        if current and current_width + ch_width > width:
+            # Prefer breaking English titles at the last space; CJK text usually has no spaces
+            # and can wrap safely at character boundaries.
+            space_at = current.rfind(" ")
+            if space_at > 0 and display_width(current[:space_at]) >= width * 0.55:
+                lines.append(current[:space_at].rstrip())
+                current = current[space_at + 1:] + ch
+                current_width = display_width(current)
+            else:
+                lines.append(current.rstrip())
+                current = ch
+                current_width = ch_width
+        else:
+            current += ch
+            current_width += ch_width
+    if current.strip():
+        lines.append(current.rstrip())
+    return lines or [""]
+
+
+def clamp_lines(lines: list[str], max_lines: int) -> list[str]:
+    if len(lines) <= max_lines:
+        return lines
+    clipped = lines[:max_lines]
+    clipped[-1] = clipped[-1].rstrip("。,.，") + "…"
+    return clipped
+
+
+def fit_slide_text(lines: list[str], *, width: int = 34, max_lines: int = 10) -> str:
+    """Normalize a slide into a safe text block that fits the decorative frame."""
+    fitted: list[str] = []
+    for raw in lines:
+        for wrapped in wrap_display_line(raw, width=width):
+            if len(fitted) >= max_lines:
+                break
+            fitted.append(wrapped)
+        if len(fitted) >= max_lines:
+            break
+    if len(fitted) == max_lines and lines:
+        fitted[-1] = fitted[-1].rstrip("。,.，") + "…"
+    return "\n".join(fitted)
 
 
 def make_slide_texts(source_text: str, title: str, category: str, source_kind: str, max_slides: int = 6) -> list[str]:
     headings = [h.strip(" #") for h in re.findall(r"^#{1,3}\s+(.+)$", source_text, flags=re.M)]
     sentences = split_sentences(source_text)
     source_label = "論文全文" if source_kind == "full_paper_pdf" else "Markdown 報告"
-    slides = [f"{category}\n{title}\n\nNotebookLM 影片下載失敗時的自動備援影片\n來源：{source_label}"]
+    title_lines = clamp_lines(wrap_display_line(title, width=32), 4)
+    slides = [fit_slide_text([
+        "AI Research Lens",
+        category,
+        *title_lines,
+        "研究導讀｜重點摘要",
+        f"來源：{source_label}",
+    ], width=32, max_lines=9)]
     important = []
     for heading in headings:
         if 4 <= len(heading) <= 40 and heading not in important:
@@ -171,22 +235,26 @@ def make_slide_texts(source_text: str, title: str, category: str, source_kind: s
     for sentence in sentences:
         if len(important) >= (max_slides - 1) * 2:
             break
-        if 20 <= len(sentence) <= 80 and sentence not in important:
+        if 20 <= len(sentence) <= 90 and sentence not in important:
             important.append(sentence)
     for i in range(0, len(important), 2):
         bullets = important[i:i + 2]
         if not bullets:
             continue
-        lines = ["重點摘要"]
+        lines = ["Research Signal", "重點摘要"]
         for bullet in bullets:
-            wrapped = wrap_display_line(bullet, 26)
+            wrapped = wrap_display_line(bullet, 30)
             lines.append("• " + wrapped[0])
             lines.extend("  " + x for x in wrapped[1:3])
-        slides.append("\n".join(lines))
+        slides.append(fit_slide_text(lines, width=34, max_lines=10))
         if len(slides) >= max_slides:
             break
     if len(slides) == 1:
-        slides.append("本報告已產生 Markdown 內容。\n此影片提供可上傳 YouTube 的自動備援版本。")
+        slides.append(fit_slide_text([
+            "Research Signal",
+            "本報告已產生 Markdown 內容。",
+            "此影片整理核心問題、方法線索與應用情境。",
+        ], width=34, max_lines=8))
     return slides
 
 
@@ -217,18 +285,42 @@ def render_video(audio: Path, slides: list[str], output: Path, font: str) -> Non
     work.mkdir(parents=True)
     filter_parts: list[str] = []
     concat_inputs: list[str] = []
+    palettes = [
+        ("0x07111F", "0x38BDF8", "0x0EA5E9"),
+        ("0x111827", "0xA78BFA", "0x7C3AED"),
+        ("0x101820", "0x34D399", "0x059669"),
+        ("0x1F172A", "0xF472B6", "0xDB2777"),
+        ("0x172033", "0xFBBF24", "0xD97706"),
+        ("0x0F172A", "0x67E8F9", "0x0891B2"),
+    ]
     for idx, slide in enumerate(slides):
         text_file = work / f"slide_{idx:02d}.txt"
-        text_file.write_text(slide, encoding="utf-8")
-        # Slight color variation to make slide cuts visible.
-        color = "0x111827" if idx % 2 == 0 else "0x172033"
+        safe_slide = fit_slide_text(slide.splitlines(), width=32 if idx == 0 else 34, max_lines=9 if idx == 0 else 10)
+        text_file.write_text(safe_slide, encoding="utf-8")
+        bg, accent, accent_dark = palettes[idx % len(palettes)]
+        font_size = 34 if idx == 0 else 32
         filter_parts.append(
-            f"color=c={color}:s=1280x720:d={per_slide:.3f}[base{idx}];"
-            f"[base{idx}]drawtext=fontfile='{escape_filter_path(Path(font))}':"
-            f"textfile='{escape_filter_path(text_file)}':fontcolor=white:fontsize=34:"
-            f"line_spacing=12:x=(w-text_w)/2:y=(h-text_h)/2,"
-            f"drawtext=fontfile='{escape_filter_path(Path(font))}':text='edge-ai-papers fallback video':"
-            f"fontcolor=0x9CA3AF:fontsize=20:x=w-tw-32:y=h-th-24,format=yuv420p[v{idx}]"
+            f"color=c={bg}:s=1280x720:d={per_slide:.3f}[base{idx}];"
+            f"[base{idx}]"
+            # Outer safety frame and translucent content card.
+            f"drawbox=x=56:y=52:w=1168:h=616:color={accent}@0.95:t=3,"
+            f"drawbox=x=82:y=84:w=1116:h=552:color=0x020617@0.34:t=fill,"
+            # Research-dashboard accents: signal rail, corner ticks, and abstract bars.
+            f"drawbox=x=96:y=108:w=10:h=504:color={accent}:t=fill,"
+            f"drawbox=x=112:y=108:w=190:h=4:color={accent}:t=fill,"
+            f"drawbox=x=112:y=608:w=250:h=4:color={accent_dark}:t=fill,"
+            f"drawbox=x=928:y=112:w=184:h=4:color={accent}@0.72:t=fill,"
+            f"drawbox=x=1060:y=120:w=52:h=52:color={accent_dark}@0.38:t=fill,"
+            f"drawbox=x=1028:y=188:w=84:h=8:color={accent}@0.42:t=fill,"
+            f"drawbox=x=984:y=212:w=128:h=8:color={accent}@0.28:t=fill,"
+            f"drawbox=x=940:y=236:w=172:h=8:color={accent}@0.18:t=fill,"
+            f"drawtext=fontfile='{escape_filter_path(Path(font))}':"
+            f"textfile='{escape_filter_path(text_file)}':fontcolor=0xF8FAFC:fontsize={font_size}:"
+            f"line_spacing=13:x=max(120\\,(w-text_w)/2):y=(h-text_h)/2,"
+            f"drawtext=fontfile='{escape_filter_path(Path(font))}':text='edge-ai-papers · research digest':"
+            f"fontcolor=0xCBD5E1:fontsize=20:x=96:y=h-th-74,"
+            f"drawtext=fontfile='{escape_filter_path(Path(font))}':text='safe-frame layout':"
+            f"fontcolor={accent}:fontsize=18:x=w-tw-96:y=h-th-74,format=yuv420p[v{idx}]"
         )
         concat_inputs.append(f"[v{idx}]")
     filter_complex = ";".join(filter_parts) + ";" + "".join(concat_inputs) + f"concat=n={len(slides)}:v=1:a=0[v]"
