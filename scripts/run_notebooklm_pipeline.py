@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -49,8 +50,7 @@ TOPIC_TO_CATEGORY = {
 }
 TOPIC_ORDER = ['edge-ai', 'edge-ai-security', 'embedded-security']
 DEFAULT_NOTEBOOK_PROFILES = [
-    str(Path.home() / '.hermes' / 'browser-profiles' / 'notebooklm'),
-    str(Path.home() / '.hermes' / 'browser-profiles' / 'notebooklm-b'),
+    'default',
 ]
 REVIEW_RE = re.compile(r'\b(review|survey|overview|tutorial|primer|systematic review|sok)\b', re.I)
 PROCESSED_PAPERS_PATH = HERMES_HOME / 'papers' / 'processed_papers.json'
@@ -70,16 +70,22 @@ MID_TIER_VENUE_KEYWORDS = [
 ]
 REVIEW_FALLBACK_QUERIES = {
     'edge-ai': [
+        'brain inspired ai edge intelligence systematic review',
+        'edge intelligence review',
         'edge ai review',
         'tinyml survey',
         'on-device machine learning review',
     ],
     'edge-ai-security': [
+        'decentralised trust and security mechanisms iot edge comprehensive review',
+        'zero trust iot security literature review',
         'edge ai security survey',
         'federated learning security survey',
         'privacy attacks defenses survey federated learning',
     ],
     'embedded-security': [
+        'security vulnerabilities iomt malware ddos review',
+        'zero trust iot security literature review',
         'embedded system security review',
         'hardware security review embedded',
         'iot embedded security survey',
@@ -87,17 +93,23 @@ REVIEW_FALLBACK_QUERIES = {
 }
 CURATED_REVIEW_FALLBACKS = {
     'edge-ai': [
+        {'title': 'Brain-inspired AI for Edge Intelligence: a systematic review', 'arxiv_id': '2603.26722'},
+        {'title': 'ECG Foundation Models and Medical LLMs for Agentic Cardiovascular Intelligence at the Edge: A Review and Outlook', 'arxiv_id': '2604.02501'},
         {'title': 'Affordable Precision Agriculture: A Deployment-Oriented Review of Low-Cost, Low-Power Edge AI and TinyML for Resource-Constrained Farming Systems', 'arxiv_id': '2603.15085'},
         {'title': 'From Tiny Machine Learning to Tiny Deep Learning: A Survey', 'arxiv_id': '2506.18927'},
         {'title': 'Cognitive Edge Computing: A Comprehensive Survey on Optimizing Large Models and AI Agents for Pervasive Deployment', 'arxiv_id': '2501.03265'},
         {'title': 'Edge AI: A Taxonomy, Systematic Review and Future Directions', 'arxiv_id': '2407.04053'},
     ],
     'edge-ai-security': [
+        {'title': 'Decentralised Trust and Security Mechanisms for IoT Networks at the Edge: A Comprehensive Review', 'arxiv_id': '2604.17179'},
+        {'title': 'Converging Zero Trust and IoT Security: A Multivocal Literature Review', 'arxiv_id': '2604.24205'},
         {'title': 'The Federation Strikes Back: A Survey of Federated Learning Privacy Attacks, Defenses, Applications, and Policy Landscape', 'arxiv_id': '2405.03636'},
         {'title': 'Towards Resilient Federated Learning in CyberEdge Networks: Recent Advances and Future Trends', 'arxiv_id': '2504.01240'},
         {'title': 'SoK: Towards Security and Safety of Edge AI', 'arxiv_id': '2410.05349'},
     ],
     'embedded-security': [
+        {'title': 'A Review on the Security Vulnerabilities of the IoMT against Malware Attacks and DDoS', 'arxiv_id': '2501.07703'},
+        {'title': 'Converging Zero Trust and IoT Security: A Multivocal Literature Review', 'arxiv_id': '2604.24205'},
         {'title': 'Modern Hardware Security: A Review of Attacks and Countermeasures', 'arxiv_id': '2501.04394'},
         {'title': 'SoK: Where\'s the "up"?! A Comprehensive (bottom-up) Study on the Security of Arm Cortex-M Systems', 'arxiv_id': '2401.15289'},
     ],
@@ -279,11 +291,23 @@ def fallback_open_review_paper(topic: str, processed_ids: set[str]) -> dict[str,
             urllib.parse.quote(f'all:"{query}"') +
             '&max_results=8&sortBy=submittedDate&sortOrder=descending'
         )
-        with urllib.request.urlopen(url, timeout=30) as resp:
-            body = resp.read().decode('utf-8', errors='ignore')
+        try:
+            with urllib.request.urlopen(url, timeout=30) as resp:
+                body = resp.read().decode('utf-8', errors='ignore')
+        except urllib.error.HTTPError as exc:
+            if exc.code in {403, 429, 500, 502, 503, 504}:
+                time.sleep(2)
+                continue
+            raise
+        except urllib.error.URLError:
+            time.sleep(2)
+            continue
         if not body.startswith('<?xml'):
             continue
-        root = ET.fromstring(body)
+        try:
+            root = ET.fromstring(body)
+        except ET.ParseError:
+            continue
         for entry in root.findall('a:entry', ns):
             title = (entry.findtext('a:title', default='', namespaces=ns) or '').replace('\n', ' ').strip()
             arxiv_url = (entry.findtext('a:id', default='', namespaces=ns) or '').strip()
@@ -688,18 +712,16 @@ def select_papers(mode: str, topics: list[str], workspace: Path, max_per_search:
         papers = data.get('papers', [])
         papers = [p for p in papers if is_direct_pdf_url(p.get('pdf_url')) and is_topic_relevant(topic, p)]
         papers = [p for p in papers if paper_identity(p) and paper_identity(p) not in selected_ids]
-        if selection_mode == 'full':
-            papers = [p for p in papers if not is_recent_duplicate_title(p.get('title', ''), recent_titles)]
-        if not papers and mode == 'review':
-            fallback = fallback_open_review_paper(topic, selected_ids)
-            if fallback:
-                papers = [fallback]
+        papers = [p for p in papers if not is_recent_duplicate_title(p.get('title', ''), recent_titles)]
         if not papers and mode == 'review':
             curated = curated_review_fallback(topic, selected_ids)
             if curated:
                 papers = [curated]
-        if selection_mode == 'full':
-            papers = [p for p in papers if not is_recent_duplicate_title(p.get('title', ''), recent_titles)]
+        if not papers and mode == 'review':
+            fallback = fallback_open_review_paper(topic, selected_ids)
+            if fallback:
+                papers = [fallback]
+        papers = [p for p in papers if not is_recent_duplicate_title(p.get('title', ''), recent_titles)]
         if not papers:
             reason = f'No unused {mode} paper with pdf_url found for topic {topic}'
             skipped_topics.append({
@@ -740,73 +762,106 @@ def download_pdf(url: str, out_path: Path) -> Path:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     run(['curl', '-L', '--fail', '-o', str(out_path), url], timeout=300)
     return out_path
-
-
-def parse_json_stdout(stdout: str) -> dict[str, Any]:
+def parse_json_stdout(stdout: str) -> Any:
     text = stdout.strip()
+    if text.startswith('{') or text.startswith('['):
+        return json.loads(text)
     start = text.find('{')
     if start < 0:
         raise ValueError(f'No JSON object in output: {stdout[:500]}')
     return json.loads(text[start:])
 
 
+def _extract_line_value(text: str, prefix: str) -> str:
+    for line in text.splitlines():
+        if line.startswith(prefix):
+            return line[len(prefix):].strip()
+    raise ValueError(f'Could not find line starting with {prefix!r} in output: {text[:500]}')
+
+
+def _wait_for_artifact(notebook_id: str, artifact_id: str, artifact_type: str, profile: str, timeout_sec: int = 1200, poll_sec: int = 15) -> dict[str, Any]:
+    deadline = time.time() + timeout_sec
+    last_status = None
+    while time.time() < deadline:
+        res = run(['nlm', 'studio', 'status', notebook_id, '--json', '--profile', profile], timeout=180)
+        artifacts = json.loads(res.stdout)
+        artifact = next((item for item in artifacts if item.get('id') == artifact_id), None)
+        if artifact is None:
+            raise RuntimeError(f'{artifact_type} artifact {artifact_id} missing from NotebookLM studio status for notebook {notebook_id}')
+        status = artifact.get('status', 'unknown')
+        last_status = status
+        if status == 'completed':
+            return artifact
+        if status in {'failed', 'error'}:
+            raise RuntimeError(f'NotebookLM {artifact_type} artifact {artifact_id} failed with status={status}')
+        time.sleep(poll_sec)
+    raise RuntimeError(f'Timed out waiting for NotebookLM {artifact_type} artifact {artifact_id}; last_status={last_status}')
+
+
 def create_notebook_and_upload(pdf_path: Path, profile: str) -> dict[str, Any]:
-    res = run(['node', str(NOTEBOOK_UPLOAD_SCRIPT), '--profile', profile, '--pdf', str(pdf_path), '--hold', '0'], timeout=600)
-    data = parse_json_stdout(res.stdout)
-    return data['state']
+    title = pdf_path.stem.replace('_', ' ').replace('-', ' ')
+    res = run(['nlm', 'notebook', 'create', title, '--profile', profile], timeout=300)
+    notebook_id = _extract_line_value(res.stdout, '  ID: ')
+    add_res = run([
+        'nlm', 'source', 'add', notebook_id,
+        '--file', str(pdf_path),
+        '--wait',
+        '--wait-timeout', '600',
+        '--profile', profile,
+    ], timeout=900)
+    source_id = _extract_line_value(add_res.stdout, 'Source ID: ')
+    return {
+        'id': notebook_id,
+        'url': notebook_id,
+        'source_id': source_id,
+        'source_label': pdf_path.name,
+    }
 
 
-def generate_report(notebook_url: str, source_label: str, paper_title: str, profile: str) -> None:
+def generate_report(notebook_url: str, source_label: str, paper_title: str, profile: str) -> str:
     report_label = 'Briefing Doc' if is_review_paper({'title': paper_title}) else 'Create Your Own'
-    run([
-        'node', str(REPO_ROOT / 'scripts' / 'notebooklm_generate_report_min.js'),
-        '--headless',
+    cmd = [
+        'nlm', 'report', 'create', notebook_url,
+        '--format', report_label,
+        '--source-ids', source_label,
+        '--language', 'zh-TW',
+        '--confirm',
         '--profile', profile,
-        '--url', notebook_url,
-        '--source-label', source_label,
-        '--report-label', report_label,
-    ], timeout=600)
+    ]
+    if report_label == 'Create Your Own':
+        cmd += ['--prompt', '請以繁體中文撰寫完整報告，包含標題、摘要、重點整理與結論。']
+    res = run(cmd, timeout=600)
+    return _extract_line_value(res.stdout, '  Artifact ID: ')
 
 
-def generate_video(notebook_url: str, source_label: str, paper_title: str, profile: str) -> None:
-    run([
-        'node', str(NOTEBOOK_VIDEO_SCRIPT),
+def generate_video(notebook_url: str, source_label: str, paper_title: str, profile: str) -> str:
+    res = run([
+        'nlm', 'video', 'create', notebook_url,
+        '--format', 'explainer',
+        '--language', 'zh-TW',
+        '--focus', f'請用繁體中文介紹這篇論文：{paper_title}',
+        '--source-ids', source_label,
+        '--confirm',
         '--profile', profile,
-        '--url', notebook_url,
-        '--source-label', source_label,
-        '--paper-title', paper_title,
-        '--mode', 'auto',
-        '--hold', '0',
     ], timeout=600)
+    return _extract_line_value(res.stdout, '  Artifact ID: ')
 
 
 def export_report_markdown(notebook_url: str, title_hint: str, out_path: Path, profile: str, source_label: str = '') -> Path:
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        'node', str(NOTEBOOK_EXPORT_SCRIPT),
-        '--profile', profile,
-        '--url', notebook_url,
-        '--output', str(out_path),
-    ]
-    if title_hint:
-        cmd += ['--title-hint', title_hint]
-    if source_label:
-        cmd += ['--source-label', source_label]
-    run(cmd, timeout=600)
+    _wait_for_artifact(notebook_url, source_label, 'report', profile, timeout_sec=1200, poll_sec=10)
+    run(['nlm', 'download', 'report', notebook_url, '--id', source_label, '--output', str(out_path)], timeout=600)
     return out_path
 
 
-def wait_and_download_video(notebook_url: str, out_dir: Path, profile: str) -> Path:
+def wait_and_download_video(notebook_id: str, artifact_id: str, out_dir: Path, profile: str) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
-    run(['node', str(NOTEBOOK_WAIT_VIDEO_SCRIPT), '--profile', profile, '--url', notebook_url, '--timeout-sec', '1200', '--poll-sec', '20'], timeout=1500)
-    res = run(['bash', str(NOTEBOOK_DOWNLOAD_VIDEO_SCRIPT), '--profile', profile, '--url', notebook_url, '--out-dir', str(out_dir)], timeout=1200)
-    m = re.search(r'Saved video to (.+\\.mp4)', res.stdout + '\n' + res.stderr)
-    if not m:
-        mp4s = sorted(out_dir.glob('*.mp4'))
-        if not mp4s:
-            raise RuntimeError(f'Could not determine downloaded video path\n{res.stdout}\n{res.stderr}')
-        return mp4s[-1]
-    return Path(m.group(1).strip())
+    _wait_for_artifact(notebook_id, artifact_id, 'video', profile, timeout_sec=420, poll_sec=20)
+    out_path = out_dir / 'video.mp4'
+    run(['nlm', 'download', 'video', notebook_id, '--id', artifact_id, '--output', str(out_path), '--no-progress'], timeout=1200)
+    if not out_path.exists():
+        raise RuntimeError(f'NotebookLM video download did not produce output file: {out_path}')
+    return out_path
 
 
 def generate_fallback_video(markdown_path: Path, paper_pdf: Path, out_dir: Path, paper: dict[str, Any], category: str, reason: str) -> tuple[Path, str]:
@@ -843,16 +898,8 @@ def generate_fallback_video(markdown_path: Path, paper_pdf: Path, out_dir: Path,
 
 
 def delete_notebook(notebook_url: str, title_hint: str, profile: str) -> dict[str, Any]:
-    cmd = [
-        'node', str(NOTEBOOK_DELETE_SCRIPT),
-        '--profile', profile,
-        '--url', notebook_url,
-        '--headless',
-    ]
-    if title_hint:
-        cmd += ['--title-hint', title_hint]
-    res = run(cmd, timeout=600)
-    return json.loads(res.stdout)
+    res = run(['nlm', 'notebook', 'delete', notebook_url, '--confirm', '--profile', profile], timeout=300)
+    return {'deleted': True, 'notebook_id': notebook_url, 'stdout': res.stdout.strip()}
 
 
 def _safe_unlink(path: Path, workspace_root: Path) -> bool:
@@ -1043,7 +1090,14 @@ def build_manifest(papers: list[dict[str, Any]], work_dir: Path, mode: str, run_
 
 
 def parse_profiles_arg(profiles_arg: str) -> list[str]:
-    profiles = [p.strip() for p in profiles_arg.split(',') if p.strip()]
+    profiles = []
+    for raw in profiles_arg.split(','):
+        p = raw.strip()
+        if not p:
+            continue
+        if '/' in p or p.startswith('.'):
+            continue
+        profiles.append(p)
     return profiles or DEFAULT_NOTEBOOK_PROFILES
 
 
@@ -1076,10 +1130,10 @@ def process_one_paper(idx: int, paper: dict[str, Any], mode: str, work_dir: Path
                 pdf_path = download_pdf(paper['pdf_url'], paper_dir / f'paper-{idx}.pdf')
                 notebook = create_notebook_and_upload(pdf_path, profile)
                 notebook_url = notebook['url']
-                source_label = pdf_path.name
+                source_id = notebook['source_id']
 
-                generate_report(notebook_url, source_label, paper['title'], profile)
-                export_md = export_report_markdown(notebook_url, '', paper_dir / 'report.md', profile, source_label)
+                report_artifact_id = generate_report(notebook_url, source_id, paper['title'], profile)
+                export_md = export_report_markdown(notebook_url, '', paper_dir / 'report.md', profile, report_artifact_id)
                 wrapped_md = write_wrapped_markdown(export_md, paper_dir / 'report_wrapped.md', paper)
 
                 video_path = None
@@ -1089,8 +1143,8 @@ def process_one_paper(idx: int, paper: dict[str, Any], mode: str, work_dir: Path
                 youtube_url = None
                 if not skip_youtube:
                     try:
-                        generate_video(notebook_url, source_label, paper['title'], profile)
-                        video_path = wait_and_download_video(notebook_url, paper_dir / 'video', profile)
+                        video_artifact_id = generate_video(notebook_url, source_id, paper['title'], profile)
+                        video_path = wait_and_download_video(notebook_url, video_artifact_id, paper_dir / 'video', profile)
                         video_status = 'ok'
                     except Exception as exc:
                         if is_video_limit_error(exc):

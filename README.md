@@ -238,6 +238,47 @@ python3 scripts/publish_notebooklm_batch.py /path/to/manifest.json
 4. 把 markdown + index 發佈到 `reports/`
 5. 由靜態網站直接讀取最新內容
 
+### 目前正式排程：`edge-ai-papers-review-batch`
+
+目前有一個 Hermes cron job 會固定執行這條產線：
+
+- job 名稱：`edge-ai-papers-review-batch`
+- 排程：`0 0 */4 * *`（每 4 天執行一次）
+- 預設模式：`review`
+- 預設關閉 `--prefer-top-tier` / `PREFER_TOP_TIER=1`
+- 固定主題：
+  - `edge ai`
+  - `edge ai security`
+  - `embedded system security`
+
+這個 cron job 的重要行為如下：
+
+1. 先同步 `main` 的最新 repo。
+2. 避免重用舊論文，會先檢查：
+   - `~/.hermes/papers/processed_papers.json`
+   - repo 內既有 `reports/` 與 `reports/index.json`
+3. 優先使用 NotebookLM MCP 進行：
+   - 建立 notebook
+   - 上傳論文
+   - 生成文字報告
+   - 生成影片摘要
+   - 下載 markdown / 影片
+   - 發佈完成後刪除 notebook
+4. 生成內容時要求繁體中文；若匯出的 markdown 不是繁體中文，會再做後處理。
+5. 每篇最終 markdown 報告最上方都必須包含論文資訊區塊：
+   - `類別`
+   - `來源`
+   - `發表年份`
+   - `作者`
+   - `連結`
+6. 報告結尾必須附上 `### 影片報告` 區塊與對應 YouTube 連結。
+7. 成功上傳 YouTube、成功更新 GitHub 並 push 之後：
+   - 更新 `~/.hermes/papers/processed_papers.json`
+   - 刪除本次建立的 NotebookLM notebook
+   - 刪除本地端暫存輸出（至少包含本次下載的 markdown 與影片檔）
+
+如果之後要讓另一個 LLM 還原這個 cron job，請優先參考 `backups/` 內的 cron bundle 與其中的還原說明。
+
 ---
 
 ## 本機執行需求
