@@ -1,6 +1,35 @@
 {
-  "lastUpdated": "2026-05-05",
+  "lastUpdated": "2026-05-06",
   "dates": [
+    {
+      "date": "2026-05-06",
+      "path": "2026-05-06/index.json",
+      "paperCount": 3,
+      "paperType": "review",
+      "papers": [
+        {
+          "title": "ECG Foundation Models and Medical LLMs for Agentic Cardiovascular Intelligence at the Edge: A Review and Outlook",
+          "tags": [
+            "Edge AI",
+            "Review Paper"
+          ]
+        },
+        {
+          "title": "Converging Zero Trust and IoT Security: A Multivocal Literature Review",
+          "tags": [
+            "Edge AI Security",
+            "Review Paper"
+          ]
+        },
+        {
+          "title": "SoK: From Silicon to Netlist and Beyond - Two Decades of Hardware Reverse Engineering Research",
+          "tags": [
+            "Embedded Systems Security",
+            "Review Paper"
+          ]
+        }
+      ]
+    },
     {
       "date": "2026-05-05",
       "path": "2026-05-05/index.json",

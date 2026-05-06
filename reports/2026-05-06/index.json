@@ -1,0 +1,36 @@
+{
+  "date": "2026-05-06",
+  "paperCount": 3,
+  "paperType": "review",
+  "papers": [
+    {
+      "id": "paper-1",
+      "category": "Edge AI",
+      "title": "ECG Foundation Models and Medical LLMs for Agentic Cardiovascular Intelligence at the Edge: A Review and Outlook",
+      "path": "paper-1-edge-ai-ecg-foundation-models-and-medical-llms-for-agentic-cardiovascular-intelligence-a.md",
+      "link": "https://arxiv.org/pdf/2604.02501.pdf",
+      "type": "REVIEW PAPER",
+      "youtubeUrl": "https://www.youtube.com/watch?v=IORAXqFDmf0"
+    },
+    {
+      "id": "paper-2",
+      "category": "Edge AI Security",
+      "title": "Converging Zero Trust and IoT Security: A Multivocal Literature Review",
+      "path": "paper-2-edge-ai-security-converging-zero-trust-and-iot-security-a-multivocal-literature-review.md",
+      "link": "https://arxiv.org/pdf/2604.24205.pdf",
+      "type": "REVIEW PAPER",
+      "youtubeUrl": "https://www.youtube.com/watch?v=kPWJeKBk-v4"
+    },
+    {
+      "id": "paper-3",
+      "category": "Embedded Systems Security",
+      "title": "SoK: From Silicon to Netlist and Beyond - Two Decades of Hardware Reverse Engineering Research",
+      "path": "paper-3-embedded-systems-security-sok-from-silicon-to-netlist-and-beyond-two-decades-of-hardware-reverse-engineeri.md",
+      "link": "https://arxiv.org/pdf/2603.17883.pdf",
+      "type": "REVIEW PAPER",
+      "youtubeUrl": "https://www.youtube.com/watch?v=g3i7xCr7s5M"
+    }
+  ],
+  "notebookLM": {},
+  "generatedAt": "2026-05-06T12:16:43.183335+08:00"
+}
