@@ -1,6 +1,35 @@
 {
-  "lastUpdated": "2026-05-06",
+  "lastUpdated": "2026-05-13",
   "dates": [
+    {
+      "date": "2026-05-13",
+      "path": "2026-05-13/index.json",
+      "paperCount": 3,
+      "paperType": "review",
+      "papers": [
+        {
+          "title": "AI-based Fog and Edge Computing: A Systematic Review, Taxonomy and Future Directions",
+          "tags": [
+            "Edge AI",
+            "Review Paper"
+          ]
+        },
+        {
+          "title": "A Survey on Trustworthy Edge Intelligence: From Security and Reliability To Transparency and Sustainability",
+          "tags": [
+            "Edge AI Security",
+            "Review Paper"
+          ]
+        },
+        {
+          "title": "A survey on IoT & embedded device firmware security: architecture, extraction techniques, and vulnerability analysis frameworks",
+          "tags": [
+            "Embedded Systems Security",
+            "Review Paper"
+          ]
+        }
+      ]
+    },
     {
       "date": "2026-05-06",
       "path": "2026-05-06/index.json",

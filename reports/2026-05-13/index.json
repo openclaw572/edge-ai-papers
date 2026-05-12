@@ -1,0 +1,36 @@
+{
+  "date": "2026-05-13",
+  "paperCount": 3,
+  "paperType": "review",
+  "papers": [
+    {
+      "id": "paper-1",
+      "category": "Edge AI",
+      "title": "AI-based Fog and Edge Computing: A Systematic Review, Taxonomy and Future Directions",
+      "path": "paper-1-edge-ai-ai-based-fog-and-edge-computing-a-systematic-review-taxonomy-and-future-direc.md",
+      "link": "https://arxiv.org/pdf/2212.04645.pdf",
+      "type": "REVIEW PAPER",
+      "youtubeUrl": "https://www.youtube.com/watch?v=FLaSP2IRdps"
+    },
+    {
+      "id": "paper-2",
+      "category": "Edge AI Security",
+      "title": "A Survey on Trustworthy Edge Intelligence: From Security and Reliability To Transparency and Sustainability",
+      "path": "paper-2-edge-ai-security-a-survey-on-trustworthy-edge-intelligence-from-security-and-reliability-to-tr.md",
+      "link": "https://arxiv.org/pdf/2310.17944.pdf",
+      "type": "REVIEW PAPER",
+      "youtubeUrl": "https://www.youtube.com/watch?v=2IlWQRgBjMY"
+    },
+    {
+      "id": "paper-3",
+      "category": "Embedded Systems Security",
+      "title": "A survey on IoT & embedded device firmware security: architecture, extraction techniques, and vulnerability analysis frameworks",
+      "path": "paper-3-embedded-systems-security-a-survey-on-iot-embedded-device-firmware-security-architecture-extra.md",
+      "link": "https://link.springer.com/content/pdf/10.1007/s43926-023-00045-2.pdf",
+      "type": "REVIEW PAPER",
+      "youtubeUrl": "https://www.youtube.com/watch?v=qkLKFGAQoMo"
+    }
+  ],
+  "notebookLM": {},
+  "generatedAt": "2026-05-13T00:00:00+08:00"
+}
