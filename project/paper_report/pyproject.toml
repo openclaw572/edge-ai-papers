@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "paper-report"
+version = "0.1.0"
+description = "繁體中文論文追蹤、評分、報告與後續影片/GitHub/YouTube 自動化專案"
+requires-python = ">=3.10"
+dependencies = [
+  "PyYAML>=6.0",
+  "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

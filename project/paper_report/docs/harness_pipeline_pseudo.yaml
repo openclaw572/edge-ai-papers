@@ -1,0 +1,23 @@
+pipeline:
+  name: Daily Paper Hunter
+  identifier: daily_paper_hunter
+  trigger:
+    type: Cron
+    schedule: "0 8 * * *"
+  stages:
+    - stage:
+        name: Hunt Papers
+        type: CI
+        steps:
+          - run: |
+              PYTHONPATH=src python -m paper_report.cli hunt \
+                --profile configs/research_profile.yaml \
+                --candidate-sources arxiv,semantic_scholar,openalex,google_scholar \
+                --output outputs/daily_report.md
+    - stage:
+        name: Publish Notification
+        type: CI
+        steps:
+          - run: |
+              # TODO: replace with Discord webhook / GitHub issue / Notion integration.
+              sed -n '1,200p' outputs/daily_report.md

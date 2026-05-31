@@ -1,0 +1,235 @@
+profiles:
+  agent_coordination:
+    topic_name: AI Agent Coordination and File-based Collaboration
+    description: 'Research related to AI agents, multi-agent systems, autonomous agents,
+      file-based communication, shared workspace, event brokers, locking, append-only
+      logs, memory stores, access control, agent coordination, and tool-mediated workflows.
+
+      '
+    positive_seed_papers:
+    - title: Shared Workspace Coordination for Tool-Using Agents
+      abstract: 'Autonomous AI agents coordinate through shared memory, append-only
+        logs, locks, event brokers, and explicit access control in a shared workspace.
+
+        '
+    positive_keywords:
+    - multi-agent systems
+    - agent coordination
+    - shared memory
+    - tool use
+    - file-based coordination
+    - event broker
+    - agent workspace
+    - append-only log
+    - file locking
+    - agent memory
+    negative_keywords:
+    - robot swarm
+    - wireless sensor network
+    - traffic control
+    - pure reinforcement learning
+    - multi-agent path planning
+    arxiv_categories:
+    - cs.AI
+    - cs.CL
+    - cs.MA
+    - cs.SE
+    - cs.CR
+    prefer_full_text: true
+    search_policy:
+      primary_months: 4
+      candidate_sources:
+      - arxiv
+      - semantic_scholar
+      - openalex
+      - google_scholar
+      fallback_windows:
+      - name: fallback_4_to_12_months
+        start_months_ago: 12
+        end_months_ago: 4
+      - name: fallback_13_to_36_months
+        start_months_ago: 36
+        end_months_ago: 13
+      - name: fallback_36_to_60_months
+        start_months_ago: 60
+        end_months_ago: 36
+    quality_threshold:
+      min_final_score: 0.72
+      min_relevance_score: 0.75
+      min_papers_required: 3
+      max_papers_to_output: 5
+    paper_type: review
+  agentic_ai:
+    topic_name: Agentic AI
+    description: Research about agentic AI systems, autonomous AI agents, LLM agents,
+      tool-using agents, planning, reasoning, multi-step task execution, agent workflows,
+      agent memory, orchestration, reflection, self-improvement, evaluation, and real-world
+      deployment.
+    positive_seed_papers: []
+    positive_keywords:
+    - agentic AI
+    - AI agents
+    - LLM agents
+    - autonomous agents
+    - tool-using agents
+    - agent planning
+    - agent workflows
+    - multi-agent systems
+    - agent memory
+    - agent evaluation
+    - reasoning agents
+    - reflection agents
+    negative_keywords:
+    - robot swarm
+    - wireless sensor network
+    - traffic control
+    - multi-agent path planning
+    - pure reinforcement learning
+    - biological agent
+    arxiv_categories:
+    - cs.AI
+    - cs.CL
+    - cs.LG
+    - cs.MA
+    - cs.SE
+    prefer_full_text: true
+    search_policy: &id001
+      primary_months: 4
+      candidate_sources:
+      - arxiv
+      - semantic_scholar
+      - openalex
+      - google_scholar
+      fallback_windows:
+      - name: fallback_4_to_12_months
+        start_months_ago: 12
+        end_months_ago: 4
+      - name: fallback_13_to_36_months
+        start_months_ago: 36
+        end_months_ago: 13
+      - name: fallback_36_to_60_months
+        start_months_ago: 60
+        end_months_ago: 36
+    quality_threshold: &id002
+      min_final_score: 0.72
+      min_relevance_score: 0.75
+      min_papers_required: 3
+      max_papers_to_output: 5
+    paper_type: review
+  edge_ai_security:
+    topic_name: Edge AI Security
+    description: Research about security, privacy, robustness, and trustworthiness
+      of AI models and inference deployed on edge devices, IoT devices, mobile devices,
+      embedded hardware, and distributed edge systems. Relevant topics include adversarial
+      attacks, model extraction, privacy leakage, secure inference, federated learning
+      security, trusted execution environments, on-device AI, and edge-cloud security.
+    positive_seed_papers: []
+    positive_keywords:
+    - edge AI security
+    - secure edge inference
+    - on-device AI security
+    - IoT AI security
+    - embedded AI security
+    - adversarial attacks edge AI
+    - model extraction
+    - privacy-preserving inference
+    - federated learning security
+    - trusted execution environment
+    - TEE
+    - robust edge intelligence
+    negative_keywords:
+    - pure image classification
+    - traffic control
+    - wireless sensor routing
+    - blockchain only
+    - smart grid optimization
+    - robot swarm
+    arxiv_categories:
+    - cs.CR
+    - cs.AI
+    - cs.LG
+    - cs.NI
+    - cs.DC
+    - eess.SP
+    prefer_full_text: true
+    search_policy: *id001
+    quality_threshold: *id002
+    paper_type: review
+  embedded_system:
+    topic_name: Embedded System
+    description: Research about embedded systems, cyber-physical systems, real-time
+      systems, microcontrollers, firmware, hardware-software co-design, embedded operating
+      systems, resource-constrained computing, edge devices, sensors, low-power computing,
+      reliability, verification, and secure embedded deployment.
+    positive_seed_papers: []
+    positive_keywords:
+    - embedded systems
+    - embedded system
+    - real-time systems
+    - firmware
+    - microcontroller
+    - hardware software co-design
+    - resource-constrained computing
+    - embedded operating systems
+    - cyber-physical systems
+    - low-power computing
+    - edge devices
+    - embedded security
+    negative_keywords:
+    - pure cloud computing
+    - large language model only
+    - web application
+    - financial market
+    - social media analysis
+    - robot swarm only
+    arxiv_categories:
+    - cs.AR
+    - cs.DC
+    - cs.SE
+    - cs.RO
+    - eess.SY
+    - eess.SP
+    prefer_full_text: true
+    search_policy: *id001
+    quality_threshold: *id002
+    paper_type: review
+  agentic_ai_security:
+    topic_name: Agentic AI Security
+    description: Research about security, safety, privacy, robustness, and governance
+      of agentic AI systems and LLM agents. Relevant topics include prompt injection,
+      tool-use security, agent sandboxing, permission control, memory poisoning, data
+      exfiltration, autonomous agent evaluation, multi-agent attack surfaces, secure
+      orchestration, and defenses for AI agents that interact with external tools
+      and environments.
+    positive_seed_papers: []
+    positive_keywords:
+    - agentic AI security
+    - LLM agent security
+    - AI agent safety
+    - prompt injection
+    - tool-use security
+    - agent sandboxing
+    - agent permissions
+    - memory poisoning
+    - data exfiltration
+    - secure agents
+    - multi-agent security
+    - AI agent evaluation
+    - autonomous agent risk
+    negative_keywords:
+    - robot swarm
+    - traffic control
+    - wireless sensor network
+    - pure cryptography
+    - pure reinforcement learning
+    - multi-agent path planning
+    arxiv_categories:
+    - cs.AI
+    - cs.CL
+    - cs.CR
+    - cs.MA
+    - cs.SE
+    prefer_full_text: true
+    search_policy: *id001
+    quality_threshold: *id002
+    paper_type: review

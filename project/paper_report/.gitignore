@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
+outputs/tmp/
+outputs/generated_reports/
+outputs/references/
+outputs/pipeline_status.json
+outputs/artifacts/
+outputs/reports/
+tmp/
+outputs/videos/

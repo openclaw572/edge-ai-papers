@@ -1,6 +1,43 @@
 {
-  "lastUpdated": "2026-05-13",
+  "lastUpdated": "2026-05-31",
   "dates": [
+    {
+      "date": "2026-05-31",
+      "path": "2026-05-31/index.json",
+      "paperCount": 2,
+      "paperType": "review",
+      "papers": [
+        {
+          "title": "Security of OpenClaw Agents: Fundamentals, Attacks, and Countermeasures",
+          "tags": [
+            "Computer science, Computer security, Action (physics), Key (lock), Class (philosophy), Risk analysis (engineering), Reliability (semiconductor), Autonomous agent, Trustworthiness, Control (management), Categorization, Deception, Architecture, Agent architecture, Intrusion detection system, Security through obscurity, Systems architecture, Software agent, Vulnerability (computing)",
+            "REVIEW PAPER"
+          ]
+        },
+        {
+          "title": "MCP-Atlas: A Large-Scale Benchmark for Tool-Use Competency with Real MCP Servers",
+          "tags": [
+            "Benchmark (surveying), Computer science, Task (project management), Server, Rubric, Context (archaeology), Protocol (science), Machine learning, Task analysis, Artificial intelligence, Data mining, Scheme (mathematics), Interface (matter), Software engineering, Data modeling, User interface, Flagging, Natural language, Context model",
+            "REVIEW PAPER"
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-05-30",
+      "path": "2026-05-30/index.json",
+      "paperCount": 1,
+      "paperType": "review",
+      "papers": [
+        {
+          "title": "Security of OpenClaw Agents: Fundamentals, Attacks, and Countermeasures",
+          "tags": [
+            "Computer science, Computer security, Action (physics), Key (lock), Class (philosophy), Risk analysis (engineering), Reliability (semiconductor), Autonomous agent, Trustworthiness, Control (management), Categorization, Deception, Architecture, Agent architecture, Intrusion detection system, Security through obscurity, Systems architecture, Software agent, Vulnerability (computing)",
+            "REVIEW PAPER"
+          ]
+        }
+      ]
+    },
     {
       "date": "2026-05-13",
       "path": "2026-05-13/index.json",

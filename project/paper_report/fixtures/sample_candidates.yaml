@@ -1,0 +1,53 @@
+recent_0_to_4_months:
+  - title: "Barely Related Tool Benchmark"
+    abstract: "A generic tool-use benchmark with little discussion of coordination, shared memory, or file-based collaboration."
+    authors: ["Example Author"]
+    published_date: "2026-04-01"
+    source: "fixture"
+    url: "https://example.org/recent-low"
+    pdf_url: "https://example.org/recent-low.pdf"
+    open_access: true
+    categories: ["cs.AI"]
+    time_window: "recent_0_to_4_months"
+fallback_4_to_12_months:
+  - title: "Shared File Workspace for Autonomous Agents"
+    abstract: >
+      Autonomous AI agents coordinate by appending events to shared files,
+      using file locks, memory stores, event brokers, and access control for
+      tool-mediated workflows.
+    authors: ["Alice Example", "Bob Example"]
+    published_date: "2025-12-01"
+    source: "fixture"
+    url: "https://arxiv.org/abs/2512.00001"
+    pdf_url: "https://arxiv.org/pdf/2512.00001"
+    open_access: true
+    citation_count: 4
+    categories: ["cs.AI", "cs.MA"]
+    time_window: "fallback_4_to_12_months"
+  - title: "Event Broker Coordination for Multi-Agent Tool Use"
+    abstract: >
+      A broker mediates tool-using AI agents through event logs, append-only
+      messages, shared workspaces, access control policies, and persistent memory.
+    authors: ["Carol Example"]
+    published_date: "2025-11-20"
+    source: "fixture"
+    url: "https://arxiv.org/abs/2511.00002"
+    pdf_url: "https://arxiv.org/pdf/2511.00002"
+    open_access: true
+    citation_count: 3
+    categories: ["cs.SE"]
+    time_window: "fallback_4_to_12_months"
+fallback_13_to_36_months:
+  - title: "Append-Only Memory Logs for Coordinating Autonomous Agents"
+    abstract: >
+      The paper studies append-only log memory, locking, and workspace protocols
+      for multi-agent systems that call tools and collaborate through files.
+    authors: ["Dana Example"]
+    published_date: "2024-10-15"
+    source: "fixture"
+    url: "https://arxiv.org/abs/2410.00003"
+    pdf_url: "https://arxiv.org/pdf/2410.00003"
+    open_access: true
+    citation_count: 12
+    categories: ["cs.AI"]
+    time_window: "fallback_13_to_36_months"

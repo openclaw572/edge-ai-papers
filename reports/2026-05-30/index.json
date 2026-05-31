@@ -1,0 +1,19 @@
+{
+  "date": "2026-05-30",
+  "paperCount": 1,
+  "paperType": "review",
+  "papers": [
+    {
+      "id": "paper-1",
+      "category": "Computer science, Computer security, Action (physics), Key (lock), Class (philosophy), Risk analysis (engineering), Reliability (semiconductor), Autonomous agent, Trustworthiness, Control (management), Categorization, Deception, Architecture, Agent architecture, Intrusion detection system, Security through obscurity, Systems architecture, Software agent, Vulnerability (computing)",
+      "title": "Security of OpenClaw Agents: Fundamentals, Attacks, and Countermeasures",
+      "path": "paper-1-security-of-openclaw-agents-fundamentals-attacks-and-countermeasures.md",
+      "link": "https://arxiv.org/pdf/2605.25435",
+      "type": "REVIEW PAPER",
+      "paperType": "review",
+      "youtubeUrl": ""
+    }
+  ],
+  "notebookLM": {},
+  "generatedAt": "2026-05-30T16:56:20.042425+00:00"
+}

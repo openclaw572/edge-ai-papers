@@ -1,0 +1,29 @@
+{
+  "date": "2026-05-31",
+  "paperCount": 2,
+  "paperType": "review",
+  "papers": [
+    {
+      "id": "paper-1",
+      "category": "Computer science, Computer security, Action (physics), Key (lock), Class (philosophy), Risk analysis (engineering), Reliability (semiconductor), Autonomous agent, Trustworthiness, Control (management), Categorization, Deception, Architecture, Agent architecture, Intrusion detection system, Security through obscurity, Systems architecture, Software agent, Vulnerability (computing)",
+      "title": "Security of OpenClaw Agents: Fundamentals, Attacks, and Countermeasures",
+      "path": "paper-1-security-of-openclaw-agents-fundamentals-attacks-and-countermeasures.md",
+      "link": "https://arxiv.org/pdf/2605.25435",
+      "type": "REVIEW PAPER",
+      "paperType": "review",
+      "youtubeUrl": "https://youtu.be/E52KnuIv_Lw"
+    },
+    {
+      "id": "paper-2",
+      "category": "Benchmark (surveying), Computer science, Task (project management), Server, Rubric, Context (archaeology), Protocol (science), Machine learning, Task analysis, Artificial intelligence, Data mining, Scheme (mathematics), Interface (matter), Software engineering, Data modeling, User interface, Flagging, Natural language, Context model",
+      "title": "MCP-Atlas: A Large-Scale Benchmark for Tool-Use Competency with Real MCP Servers",
+      "path": "paper-2-mcp-atlas-a-large-scale-benchmark-for-tool-use-competency-with-real-mcp-servers.md",
+      "link": "https://arxiv.org/pdf/2602.00933",
+      "type": "REVIEW PAPER",
+      "paperType": "review",
+      "youtubeUrl": ""
+    }
+  ],
+  "notebookLM": {},
+  "generatedAt": "2026-05-31T06:11:47.885493+00:00"
+}

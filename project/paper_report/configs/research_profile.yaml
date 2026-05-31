@@ -1,0 +1,65 @@
+topic_name: "AI Agent Coordination and File-based Collaboration"
+paper_type: "review"
+description: >
+  Research related to AI agents, multi-agent systems, autonomous agents,
+  file-based communication, shared workspace, event brokers, locking,
+  append-only logs, memory stores, access control, agent coordination,
+  and tool-mediated workflows.
+
+positive_seed_papers:
+  - title: "Shared Workspace Coordination for Tool-Using Agents"
+    abstract: >
+      Autonomous AI agents coordinate through shared memory, append-only logs,
+      locks, event brokers, and explicit access control in a shared workspace.
+
+positive_keywords:
+  - "multi-agent systems"
+  - "agent coordination"
+  - "shared memory"
+  - "tool use"
+  - "file-based coordination"
+  - "event broker"
+  - "agent workspace"
+  - "append-only log"
+  - "file locking"
+  - "agent memory"
+
+negative_keywords:
+  - "robot swarm"
+  - "wireless sensor network"
+  - "traffic control"
+  - "pure reinforcement learning"
+  - "multi-agent path planning"
+
+arxiv_categories:
+  - "cs.AI"
+  - "cs.CL"
+  - "cs.MA"
+  - "cs.SE"
+  - "cs.CR"
+
+prefer_full_text: true
+
+search_policy:
+  primary_months: 4
+  candidate_sources:
+    - "arxiv"
+    - "semantic_scholar"
+    - "openalex"
+    - "google_scholar"
+  fallback_windows:
+    - name: "fallback_4_to_12_months"
+      start_months_ago: 12
+      end_months_ago: 4
+    - name: "fallback_13_to_36_months"
+      start_months_ago: 36
+      end_months_ago: 13
+    - name: "fallback_36_to_60_months"
+      start_months_ago: 60
+      end_months_ago: 36
+
+quality_threshold:
+  min_final_score: 0.72
+  min_relevance_score: 0.75
+  min_papers_required: 3
+  max_papers_to_output: 5
