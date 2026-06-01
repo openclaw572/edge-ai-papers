@@ -110,7 +110,28 @@ def select_final_papers(profile: ResearchProfile, ranked: list[RankedPaper]) -> 
         requested_qualified = qualified_papers(profile, eligible)
         if requested_qualified:
             eligible = requested_qualified
-    return sorted(eligible, key=lambda p: (p.final_llm_score or p.final_score, p.final_score), reverse=True)[:max_results]
+    sorted_eligible = sorted(eligible, key=lambda p: (p.final_llm_score or p.final_score, p.final_score), reverse=True)
+    return dedupe_ranked_by_title(sorted_eligible)[:max_results]
+
+
+def dedupe_ranked_by_title(ranked: Iterable[RankedPaper]) -> list[RankedPaper]:
+    """Keep at most one selected paper per normalized title.
+
+    Candidate sources can return the same paper with different DOI/arXiv/S2 IDs.
+    The user-facing cron report should never include duplicated titles in the
+    same run, so final selection uses title-level de-duplication after sorting
+    by quality score.
+    """
+    seen_titles: set[str] = set()
+    unique: list[RankedPaper] = []
+    for item in ranked:
+        key = normalize_title(item.paper.title)
+        if key and key in seen_titles:
+            continue
+        if key:
+            seen_titles.add(key)
+        unique.append(item)
+    return unique
 
 
 def _assign_window(papers: Iterable[Paper], window_name: str) -> list[Paper]:

@@ -1,107 +1,257 @@
 # Paper Report 專案
 
-此專案位於 `~/.hermes/project/paper_report`，用來建立「領域相關論文自動挑選 → 繁體中文 Markdown / LaTeX 文字報告 → 影片報告 → GitHub / YouTube 發布 → 本地清理」的工作流。
+本專案位於 `/home/aaron/.hermes/project/paper_report`，用途是把「研究領域設定」轉成可定期執行的完整論文報告產線：
 
-> 維護規則：此 README 是本專案的主要狀態紀錄。之後若有新增功能、修改篩選規則、調整 API / rate limit、或補上尚未完成的模組，需同步更新 README，並在回覆中說明「已更新 README」。
+1. 依 research profile 搜尋候選論文。
+2. 依時間窗、來源順序、語意相關度與品質門檻選出論文。
+3. 產生繁體中文 Markdown 報告與影片報告。
+4. 蒐集每篇 selected paper 的 references。
+5. 上傳影片到 YouTube，發布 Markdown 到 GitHub 靜態網站 repo。
+6. 成功後刪除本次執行建立的 NotebookLM notebooks 與本地中間產物。
+7. 寫入 `outputs/pipeline_status.json`，並由 Hermes cron job 將結果推播。
 
----
+> 維護規則：此 README 是本專案的主要重現文件與狀態紀錄。新增功能、修改篩選規則、調整 API / rate limit、修正 cron 行為或變更輸出格式後，必須同步更新 README，並在回覆中說明「已更新 README」。
 
-## 目前狀態總覽
-
-### 已完成
-
-- 建立專案目錄與基本 Python package：`src/paper_report/`。
-- 支援多領域 Research Profile：可新增、刪除、修改、查詢領域設定。
-- Research Profile 支援 `paper_type`，預設為 `review`；若使用者特別指定一般研究論文，可設為 `general`，也可設為 `any` 做評估 / 除錯。
-- 實作 Daily Paper Hunter MVP：
-  - 優先搜尋最近 4 個月。
-  - 最近 4 個月不足品質門檻時，才依序 fallback 到 4～12 個月前、13～36 個月前、36～60 個月前（最多回溯 5 年）。
-  - 候選來源依序支援 `arXiv → Semantic Scholar → OpenAlex → Google Scholar`。
-  - 每個來源抓完都會重新 normalize / dedupe / ranking / quality gate；足夠就停止，不足才查下一個來源。
-  - 外部來源若 rate limited 或暫時失敗，workflow 會跳到下一個來源，避免 cron job 整體中斷。
-- 實作候選論文正規化與去重：DOI → arXiv ID → Semantic Scholar ID → title normalized string。
-- 實作 semantic relevance ranking，不只靠 keyword。
-- 實作 anti-keyword-stuffing regression tests，避免 keyword-stuffed decoy 或高引用但不相關論文壓過真正相關論文。
-- 實作 deterministic heuristic LLM Review placeholder，可之後替換成真實 LLM / NotebookLM。
-- 實作 YouTube / GitHub / Codex Gmail 發布與任務串接：
-  - `upload-videos` 會呼叫 OpenClaw CLI，要求 OpenClaw 用 webbridge 操作瀏覽器上傳影片到 YouTube；上傳前先用 image2.0 產生該論文專屬封面圖並在 YouTube Studio 設為 custom thumbnail；支援平行 worker，並把 `youtube_url` / `youtube_thumbnail_path` 回寫 manifest 與 Markdown。
-  - `publish-github` 會把 `https://github.com/openclaw572/edge-ai-papers.git` 依原本靜態網站架構更新：保留 `index.html`、`css/`、`js/`、`reports/`，清掉舊的產線方法 / 任務說明與 README，改寫成只描述網站架構；再新增本 project 到 `project/paper_report/`，並把報告寫入 `reports/YYYY-MM-DD/` 與 index JSON。第一次正式執行也會先做這個 repo 清理 / 改寫並 push。
-  - `record-references` 會在清理本地報告 / 影片前，查詢並記錄本次 selected papers 引用的 references，標明每筆 reference 是哪篇 selected paper 引用的。
-  - `run-full-pipeline` 串起 hunt → generate reports/videos → record references → upload YouTube(+image2.0 thumbnail) → publish GitHub → 成功驗證後清理 generated artifacts → Codex CLI Gmail 通知。
-- 實作報告生成 MVP：
-  - 依找到 / 選出的論文數量 `floor(n / 2)` 分配給本地方法，其餘分配給 NotebookLM。
-  - 本地方法會產生繁體中文 Markdown 報告與 `.mp4` 影片報告；影片使用 `ffmpeg`，可選 `edge-tts` 產生繁中旁白，失敗時保留可追蹤 placeholder / 靜音影片。
-  - NotebookLM 路線已安裝 `notebooklm-mcp-cli`，並把 `notebooklm-mcp` 設為 Hermes MCP server（39 個工具已啟用；新 session 可直接使用）。
-  - NotebookLM 生成流程透過同套 MCP/CLI 套件的 `nlm` automation：建立 notebook、加入 source、產生 Report、產生 Video Overview、下載 report/video。
-  - NotebookLM 上傳或下載失敗時，會呼叫 OpenClaw CLI，要求它用 webbridge 操作 NotebookLM 網頁補上上傳 / 下載。
-  - NotebookLM Video Overview 最多等待 30 分鐘；若只是尚未生成完成，會 fallback 到本地影片生成。
-  - 本地影片腳本會依 `paper_type` 套用不同結構：review paper 10 段、一般 paper 12 段。
-  - 多篇論文使用 `ThreadPoolExecutor` 平行處理，並輸出 `manifest.json`。
-- 建立離線 fixture demo 與 pytest 測試。
-- 已依官方文件調整 / 固定 request pacing：
-  - arXiv：1 request / 3 seconds。
-  - Semantic Scholar：採保守 1 request / second；支援 API key header。
-
-### 未完成 / 待補
-
-- NotebookLM 帳號登入 / cookie auth：目前 `nlm doctor` 顯示尚未登入；正式跑 NotebookLM 前需執行 `nlm login`。
-- 本地全文 PDF 解析與更完整的章節式摘要：introduction / method / experiment / conclusion。
-- LaTeX 報告輸出。
-- 更精緻的本地影片報告：字幕、多頁 slide、Manim / slide renderer pipeline。
-- 遠端驗證規則可再補強：目前 GitHub 以 commit / push 結果為準，YouTube 以 OpenClaw 回傳 URL 為準；後續可加入 URL live probe / YouTube processing status 檢查。
-- 真實 LLM Review API 串接；目前是 deterministic heuristic reviewer。
-- Google Scholar 官方 API 不存在；目前預留 SerpAPI 路線，需設定 API key 才會啟用。
+最後更新：2026-05-31。
 
 ---
 
-## 目錄
+## 網站與發布位置
+
+- 靜態網站 repo：<https://github.com/openclaw572/edge-ai-papers>
+- 預期 GitHub Pages URL：<https://openclaw572.github.io/edge-ai-papers/>
+- 目前檢查結果：GitHub API 顯示 `has_pages=false`，因此 Pages URL 目前會回 404。若要讓網頁可直接瀏覽，需要在 GitHub repo Settings → Pages 啟用 `main` branch / root 或對應發布目錄。
+- 本 pipeline 會把報告發布到 repo 內的 `reports/YYYY-MM-DD/*.md`，並更新：
+  - `reports/index.json`
+  - `reports/YYYY-MM-DD/index.json`
+  - `project/paper_report/`（同步本專案程式與 README，讓其他 agent 可重現）
+
+---
+
+## 目前重要修正狀態（2026-05-31）
+
+本次針對 cron job 失敗與使用者指出的缺失，已把設計收斂成以下規則：
+
+1. **本地方法影片長度**
+   - 本地產生的影片預設最短 `9 * 60 = 540` 秒。
+   - CLI 參數：`--local-video-min-duration-seconds`。
+   - 程式會用 `ffmpeg` 產生 1 fps still-video，搭配靜音或 `edge-tts` 旁白；若 TTS 音訊更長，影片會延長到音訊長度以上。
+
+2. **Markdown 報告格式**
+   - 本地 fallback 報告不再是短版 MVP。
+   - 已改成參考既有網站報告的格式：metadata block、NotebookLM/自動報告標記、執行摘要、核心主題分析、表格、重要引言與背景脈絡、對本專案的啟發、限制、後續閱讀、影片報告。
+   - 本地報告仍會清楚標示「metadata + abstract-based」，避免假裝已完整解析 PDF。
+
+3. **同一次 cron job 選文不得重複**
+   - 候選階段仍會用 DOI → arXiv ID → Semantic Scholar ID → normalized title 合併 metadata。
+   - 最終輸出前新增 title-level de-duplication：同一 run 內 normalized title 相同時，只保留排序最高的一篇。
+
+4. **Reference 蒐集**
+   - `record-references` 預設 `--limit-per-paper 0`，代表依 Semantic Scholar `/references` 分頁一路抓到沒有 `next` 為止。
+   - 每篇 selected paper 會輸出：`lookup_complete`、`total_references_recorded`、reference title/authors/year/url/doi/arxiv/context。
+   - 輸出檔保留在 `outputs/references/YYYY-MM-DD/`，即使成功清理本地影片與 Markdown 也不刪除 references。
+
+5. **清理策略**
+   - 完整成功條件：所有 YouTube upload 都回傳 URL，且 GitHub publish 成功。
+   - 成功後會刪除：
+     - 本次 manifest 裡的 NotebookLM `notebook_id` 對應 notebooks。
+     - `outputs/generated_reports/`（包含本地/NotebookLM Markdown 與 video）。
+     - `outputs/daily_report.md`。
+     - `outputs/daily_report.json`。
+   - 保留：
+     - `outputs/references/YYYY-MM-DD/`。
+     - `outputs/pipeline_status.json`。
+   - 若 YouTube / GitHub 失敗，會保留本地 artifacts 供除錯。
+
+6. **YouTube / OpenClaw 穩定性**
+   - YouTube upload 預設改成單 worker，避免多個 worker 同時操作同一個 browser / YouTube Studio 對話框。
+   - OpenClaw upload timeout 預設提高到 5400 秒。
+   - `/home/aaron/.openclaw/openclaw.json` 的 `agents.defaults.timeoutSeconds` 已設定為 5400，避免 OpenClaw RPC 約 100 秒就中止。
+
+---
+
+## 專案目錄
 
 ```text
 configs/
-  research_profile.yaml        # 單一領域設定
-  research_profiles.yaml       # 多領域 profile store，可新增/刪除/修改
+  research_profile.yaml        # 單一 research profile，cron 預設使用
+  research_profiles.yaml       # 多 profile store，可 profiles upsert/list/delete
 fixtures/
   sample_candidates.yaml       # 離線測試候選論文
+scripts/
+  run_full_pipeline.py         # Hermes cron 呼叫的完整 pipeline wrapper
 src/paper_report/
   arxiv_client.py              # arXiv API query / Atom parser
   semantic_scholar.py          # Semantic Scholar candidate search + metadata enrichment
   openalex.py                  # OpenAlex candidate search / abstract reconstruction
-  google_scholar.py            # Google Scholar candidate search via SerpAPI
+  google_scholar.py            # Google Scholar via SerpAPI（未設定 key 時回空）
   source_utils.py              # candidate source order / query / date helpers
-  ranking.py                   # vector relevance + metadata scoring
-  workflow.py                  # windows、quality gate、fallback、selection
-  report.py                    # 繁體中文 Markdown report
-  report_generation.py         # 本地/NotebookLM 報告與影片生成、OpenClaw fallback、平行 orchestration
-  youtube_openclaw.py          # OpenClaw CLI + webbridge YouTube 上傳、image2.0 封面、manifest/Markdown 回寫
-  github_publish.py            # edge-ai-papers 靜態網站 repo 清理、報告發布、project 複製、git commit/push
-  references.py                # selected papers reference 紀錄（刪除本地產物前執行）
-  codex_notify.py              # 任務完成/失敗後使用 Codex CLI 寄 Gmail 通知
-  pipeline.py                  # hunt → generate → references → YouTube → GitHub → cleanup → email 串接 runner
-  cli.py                       # profiles / hunt / generate-reports / upload / publish / full pipeline CLI
+  paper_type.py                # review/general/any 分類與 query intent
+  ranking.py                   # semantic relevance + metadata score
+  review.py                    # deterministic heuristic reviewer placeholder
+  workflow.py                  # windows、quality gate、fallback、final selection、title 去重
+  report.py                    # hunt 階段 summary Markdown
+  report_generation.py         # 本地/NotebookLM Markdown + video generation
+  references.py                # selected papers references 蒐集與輸出
+  youtube_openclaw.py          # OpenClaw webbridge YouTube upload + thumbnail + manifest patch
+  github_publish.py            # 發布 Markdown 到 edge-ai-papers repo
+  codex_notify.py              # Codex CLI Gmail 通知
+  pipeline.py                  # hunt → generate → references → upload → publish → cleanup → email
+  cli.py                       # 所有 CLI subcommands
 tests/
-  test_*.py                    # pytest 測試
+  test_*.py                    # pytest regression tests
 docs/
   report_generation_and_delivery_plan.md
   harness_pipeline_pseudo.yaml
 outputs/
-  daily_report.md              # 執行後產生
-  daily_report.json            # 執行後產生
+  pipeline_status.json         # 最近完整 pipeline 狀態
+  references/YYYY-MM-DD/       # 成功/失敗都可保留的 reference 記錄
 ```
 
 ---
 
-## 安裝 / 測試
+## 從零重現環境
+
+此機器目前 Python 為 3.11；系統環境是 PEP 668，建議用 venv 或 uv，不要直接對 system Python 安裝套件。
 
 ```bash
-cd ~/.hermes/project/paper_report
+cd /home/aaron/.hermes/project/paper_report
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 PYTHONPATH=src pytest -q
 ```
 
-離線 demo，不打外部 API，使用 fixture 驗證 fallback 與報告輸出：
+如果 `python -m venv` 或 `pip` 不可用，可改用 uv：
 
 ```bash
-cd ~/.hermes/project/paper_report
+cd /home/aaron/.hermes/project/paper_report
+uv venv .venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
+PYTHONPATH=src python -m pytest -q
+```
+
+目前 `requirements.txt`：
+
+```text
+PyYAML>=6.0
+requests>=2.31.0
+pytest>=8.0
+```
+
+外部工具（視功能需要）：
+
+- `ffmpeg` / `ffprobe`：本地影片與 duration 檢查。
+- `edge-tts`：選用；啟用 `--enable-tts` 時才需要。
+- `nlm` / `notebooklm-mcp`：NotebookLM automation。
+- `openclaw` CLI：YouTube / NotebookLM webbridge fallback、Codex/Gmail 相關自動化。
+- `git`：發布到 GitHub repo。
+
+---
+
+## Research Profile 與選文規則
+
+### Profile 位置
+
+Cron 預設使用：
+
+```text
+configs/research_profile.yaml
+```
+
+Profile 重要欄位：
+
+```yaml
+topic_name: "AI Agent Coordination and File-based Collaboration"
+paper_type: "review"   # 預設 review；若使用者明確要求一般研究論文才改 general；any 僅供測試/除錯
+description: "..."
+positive_seed_papers: []
+positive_keywords: []
+negative_keywords: []
+arxiv_categories: []
+prefer_full_text: true
+search_policy: {...}
+quality_threshold: {...}
+```
+
+### 時間窗策略
+
+1. 先查最近 0–4 個月。
+2. 若 qualified papers 不足 `min_papers_required`，才依序 fallback：
+   - 4–12 個月前
+   - 13–36 個月前
+   - 36–60 個月前
+3. 每篇候選會標示 `time_window`，daily report 會列出 fallback 是否被使用。
+
+### 候選來源順序
+
+預設順序：
+
+```text
+arxiv,semantic_scholar,openalex,google_scholar
+```
+
+每個時間窗內：
+
+```text
+arXiv
+  ↓ 如果 quality gate 不足
+Semantic Scholar
+  ↓ 如果 quality gate 不足 / API 429 / 暫時失敗
+OpenAlex
+  ↓ 如果 quality gate 不足
+Google Scholar via SerpAPI
+```
+
+每補一個來源都會重新 normalize、dedupe、ranking 與 quality gate；足夠就停止，不會無限制抓資料。
+
+### 去重規則
+
+候選 metadata 合併階段：
+
+```text
+1. DOI
+2. arXiv ID
+3. Semantic Scholar paperId
+4. normalized title
+```
+
+最終 selected papers 輸出階段：
+
+```text
+normalized title 去重；同一標題只保留分數最高的一篇。
+```
+
+### Ranking score
+
+```text
+semantic_relevance = scaled(
+  0.70 * profile_similarity
++ 0.25 * seed_similarity
++ 0.05 * positive_keyword_score
+- negative_keyword_penalty
+)
+
+final_score =
+  0.45 * semantic_relevance
++ 0.20 * recency_score
++ 0.15 * full_text_score
++ 0.10 * citation_signal
++ 0.10 * code_or_project_signal
+```
+
+`positive_keyword_score` 權重很低，避免 keyword stuffing 的假相關論文壓過真正相關論文。
+
+---
+
+## 常用 CLI
+
+### 1. 離線 demo（不打外部 API）
+
+```bash
+cd /home/aaron/.hermes/project/paper_report
 PYTHONPATH=src python -m paper_report.cli hunt \
   --profile configs/research_profile.yaml \
   --sample-candidates fixtures/sample_candidates.yaml \
@@ -109,37 +259,37 @@ PYTHONPATH=src python -m paper_report.cli hunt \
   --output outputs/daily_report.md
 ```
 
----
+輸出：
 
-## Live multi-source run
+- `outputs/daily_report.md`
+- `outputs/daily_report.json`
 
-預設候選來源順序：
-
-```text
-arxiv,semantic_scholar,openalex,google_scholar
-```
-
-執行：
+### 2. Live paper hunt
 
 ```bash
-cd ~/.hermes/project/paper_report
+cd /home/aaron/.hermes/project/paper_report
 PYTHONPATH=src python -m paper_report.cli hunt \
   --profile configs/research_profile.yaml \
   --output outputs/daily_report.md
 ```
 
----
-
-## 生成 Markdown / 影片報告
-
-先跑 `hunt` 產生 `outputs/daily_report.json`，再執行：
+可指定候選來源順序：
 
 ```bash
-cd ~/.hermes/project/paper_report
+PYTHONPATH=src python -m paper_report.cli hunt \
+  --profile configs/research_profile.yaml \
+  --candidate-sources arxiv,semantic_scholar,openalex \
+  --output outputs/daily_report.md
+```
+
+### 3. 生成 Markdown / video
+
+```bash
 PYTHONPATH=src python -m paper_report.cli generate-reports \
   --input outputs/daily_report.json \
   --output-dir outputs/generated_reports \
-  --max-workers 4
+  --max-workers 4 \
+  --local-video-min-duration-seconds 540
 ```
 
 分配規則：
@@ -154,407 +304,50 @@ NotebookLM 方法數量 = selected_papers_count - 本地方法數量
 ```text
 outputs/generated_reports/
   local/<paper>/report.md
+  local/<paper>/script.txt
   local/<paper>/video.mp4
   notebooklm/<paper>/report.md
   notebooklm/<paper>/video.mp4
   manifest.json
 ```
 
-NotebookLM / MCP 安裝與設定狀態：
-
-```bash
-uv tool install notebooklm-mcp-cli
-hermes mcp add notebooklm --command notebooklm-mcp
-hermes mcp list
-```
-
-已完成安裝與 Hermes MCP server 設定；但 NotebookLM 正式操作需要 Google cookie auth，目前需手動登入一次：
-
-```bash
-nlm login
-nlm doctor
-```
-
-NotebookLM 影片生成等待策略：
-
-```text
---video-wait-timeout-seconds 1800  # 預設 30 分鐘
-```
-
-如果 NotebookLM video overview 超過時間仍未完成，且不是下載錯誤，就改用本地 `ffmpeg` 影片生成。
-
-本地影片腳本會依 `paper_type` 分流：
-
-- Review paper：開場、研究背景、Review 範圍、分類架構、各類方法重點、比較與趨勢、挑戰與限制、未來方向、你的觀點、總結。
-- 一般 paper：開場、研究問題、背景與動機、相關工作簡述、核心方法、系統/模型架構、實驗設計、實驗結果、優點與貢獻、限制與問題、你的觀點、總結。
-
-可手動改來源順序或暫時只跑部分來源：
-
-```bash
-PYTHONPATH=src python -m paper_report.cli hunt \
-  --profile configs/research_profile.yaml \
-  --candidate-sources arxiv,semantic_scholar,openalex \
-  --output outputs/daily_report.md
-```
-
----
-
-## API rate limit / request pacing
-
-### arXiv
-
-官方文件：
-
-- https://info.arxiv.org/help/api/tou.html
-- https://info.arxiv.org/help/api/user-manual.html
-
-目前設定：
-
-```text
-ARXIV_REQUEST_INTERVAL_SECONDS = 3.0
-```
-
-原因：arXiv Terms of Use 要求 legacy APIs，包括 arXiv API，不超過每 3 秒 1 個 request，且一次只用單一連線。
-
-CLI 預設：
-
-```text
---arxiv-sleep-seconds 3.0
-```
-
-### Semantic Scholar
-
-官方文件：
-
-- https://www.semanticscholar.org/product/api
-
-官方頁面目前描述：
-
-- 大多數 endpoint 可無 API key 使用，但 unauthenticated users 共用 public rate limit pool，文件寫為 shared 1000 requests / second，且 heavy use 時可能被進一步 throttle。
-- API key 的 introductory rate limit 是 1 RPS on all endpoints。
-
-本專案採保守設定：
-
-```text
-SEMANTIC_SCHOLAR_REQUEST_INTERVAL_SECONDS = 1.0
-```
-
-原因：
-
-- 這符合 API key introductory rate limit：1 request / second。
-- 即使未設定 API key，也避免對 shared unauthenticated pool 造成壓力。
-- 實測 Semantic Scholar 可能回 HTTP 429，所以 workflow 會在該來源失敗時跳到 OpenAlex / 後續來源。
-
-CLI 預設：
-
-```text
---semantic-sleep-seconds 1.0
-```
-
-可設定 API key：
-
-```bash
-export SEMANTIC_SCHOLAR_API_KEY="你的_key"
-# 或
-export S2_API_KEY="你的_key"
-```
-
-程式會自動把 key 放入 `x-api-key` header。
-
-### OpenAlex
-
-官方 API 不需 key；建議設定 mailto 方便 OpenAlex 聯絡與識別用戶：
-
-```bash
-export OPENALEX_MAILTO="you@example.com"
-```
-
-目前預設：
-
-```text
---openalex-sleep-seconds 0.2
-```
-
-### Google Scholar
-
-Google Scholar 沒有官方免費 JSON API，直接 scraping 容易遇到 CAPTCHA，也不適合作為穩定 cron pipeline。
-
-目前補法：使用 SerpAPI 的 Google Scholar engine。
-
-啟用方式：
-
-```bash
-export SERPAPI_API_KEY="你的_key"
-# 或
-export GOOGLE_SCHOLAR_SERPAPI_KEY="你的_key"
-```
-
-如果沒有 key：
-
-```text
-Google Scholar source 會安全回傳空候選，不會讓 workflow 失敗。
-```
-
----
-
-## 論文篩選規則詳細說明
-
-### 1. Research Profile
-
-每個領域由 profile 定義，例如：
-
-```yaml
-topic_name: "AI Agent Coordination and File-based Collaboration"
-paper_type: "review"   # 預設找 review paper；若要一般 paper，改成 "general"
-description: "..."
-positive_seed_papers: []
-positive_keywords: []
-negative_keywords: []
-arxiv_categories: []
-prefer_full_text: true
-search_policy: {...}
-quality_threshold: {...}
-```
-
-用途：
-
-- `paper_type`：預設 `review`，會讓候選 query 加入 review / survey intent，並讓 quality gate / final selection 優先選 review paper；若指定 `general`，則改優先一般研究論文；`any` 主要供測試或除錯。
-- `description`：semantic relevance 的主要比較對象。
-- `positive_seed_papers`：作為 seed similarity 的比較基準。
-- `positive_keywords`：只用於候選召回與弱 ranking feature，不作為最終選擇主因。
-- `negative_keywords`：用於排除相近但錯誤的領域，例如 robot swarm / traffic control。
-- `arxiv_categories`：arXiv candidate search 的類別限制。
-
-### 2. 時間窗策略
-
-先跑 primary window：
-
-```text
-recent_0_to_4_months
-```
-
-若最近 4 個月 qualified papers 不足 `min_papers_required`，才依序 fallback：
-
-```text
-fallback_4_to_12_months
-fallback_13_to_36_months
-fallback_36_to_60_months
-```
-
-每篇論文都會標示 `time_window`，報告也會透明列出 fallback 是否被使用。
-
-### 3. 候選來源補法
-
-每個時間窗內的候選補法如下：
-
-```text
-arXiv
-  ↓ 如果 quality gate 不足
-Semantic Scholar
-  ↓ 如果 quality gate 不足 / Semantic Scholar 429 或失敗
-OpenAlex
-  ↓ 如果 quality gate 不足
-Google Scholar via SerpAPI
-```
-
-重點：
-
-- 每補一個來源，都會合併目前候選、去重、重新 ranking、重新 quality gate。
-- 一旦達到品質門檻，就不再查後面的來源。
-- 只有當較新的時間窗所有來源都不足，才進入較舊 fallback window。
-
-### 4. 去重規則
-
-去重順序：
-
-```text
-1. DOI
-2. arXiv ID
-3. Semantic Scholar paperId
-4. normalized title
-```
-
-合併 metadata 時：
-
-- 較長 abstract 優先保留。
-- DOI / URL / PDF / IDs 等缺欄會由後來來源補上。
-- authors / categories 會合併去重。
-
-### 5. Semantic relevance
-
-目前使用本地 deterministic semantic-ish vector：
-
-- tokenization
-- domain synonym expansion
-- hashed embedding
-- cosine similarity
-
-比較對象：
-
-```text
-profile_similarity = similarity(paper.title + abstract, profile.description)
-seed_similarity = max similarity against positive_seed_papers
-positive_keyword_score = exact positive keyword weak signal
-negative_keyword_penalty = negative keyword + negated domain evidence penalty
-```
-
-語意相關性：
-
-```text
-semantic_relevance = scaled(
-  0.70 * profile_similarity
-+ 0.25 * seed_similarity
-+ 0.05 * positive_keyword_score
-- negative_keyword_penalty
-)
-```
-
-注意：`positive_keyword_score` 權重只有 0.05，刻意避免「塞滿 keyword 的假相關論文」被選上。
-
-### 6. metadata scoring
-
-最終 ranking score：
-
-```text
-final_score =
-  0.45 * semantic_relevance
-+ 0.20 * recency_score
-+ 0.15 * full_text_score
-+ 0.10 * citation_signal
-+ 0.10 * code_or_project_signal
-```
-
-各分數：
-
-- `recency_score`
-  - recent 0～4 months：1.0
-  - fallback 4～12 months：0.7
-  - fallback 13～36 months：0.4
-  - fallback 36～60 months：0.2
-  - older / unknown：0.2
-- `full_text_score`
-  - 有 PDF：1.0
-  - open access landing page：0.7
-  - DOI / abstract only：0.3
-  - 無法取得：0.0
-- `citation_signal`
-  - 使用 citation_count + influential_citation_count 的 log scaling。
-  - 只佔 0.10，避免高引用但不相關論文壓過語意相關論文。
-- `code_or_project_signal`
-  - 若偵測到 GitHub / source code / dataset / project page，給加分。
-
-### 7. Quality Gate
-
-預設門檻：
-
-```yaml
-quality_threshold:
-  min_final_score: 0.72
-  min_relevance_score: 0.75
-  min_papers_required: 3
-  max_papers_to_output: 5
-```
-
-Qualified paper 條件：
-
-```text
-final_score >= min_final_score
-and semantic_relevance >= min_relevance_score
-```
-
-如果最近 4 個月 qualified papers 數量未達 `min_papers_required`，才啟動 fallback。
-
-### 8. LLM Review placeholder
-
-目前 `review.py` 使用 deterministic heuristic reviewer，只審 ranking 後 Top 20。
-
-之後可替換成：
-
-- 真實 LLM API。
-- NotebookLM Reports 結果。
-- 混合 reviewer：LLM relevance / novelty / practical value + PDF 摘要。
-
----
-
-## 領域管理
-
-列出領域：
-
-```bash
-PYTHONPATH=src python -m paper_report.cli profiles --store configs/research_profiles.yaml list
-```
-
-新增或更新領域：
-
-```bash
-PYTHONPATH=src python -m paper_report.cli profiles --store configs/research_profiles.yaml upsert \
-  --id agent_coordination \
-  --data-file configs/research_profile.yaml
-```
-
-用 JSON patch 更新欄位：
-
-```bash
-PYTHONPATH=src python -m paper_report.cli profiles --store configs/research_profiles.yaml upsert \
-  --id agent_coordination \
-  --json '{"description":"新的領域描述","positive_keywords":["agent coordination"]}'
-```
-
-刪除領域：
-
-```bash
-PYTHONPATH=src python -m paper_report.cli profiles --store configs/research_profiles.yaml delete --id agent_coordination
-```
-
----
-
-## 報告生成路線備註
-
-### NotebookLM 路線
-
-目前已實作：
-
-1. 透過 `notebooklm-mcp-cli` / `nlm` 建立 NotebookLM notebook。
-2. 加入論文 PDF URL 或 landing URL 作為 source。
-3. 使用 Report / Briefing Doc 產生 Markdown 報告並下載。
-4. 使用 Video Overview 產生影片並下載。
-5. 若 NotebookLM 上傳或下載成品失敗，呼叫 OpenClaw CLI，要求 OpenClaw 以 webbridge 操作 NotebookLM 網頁補救。
-6. 若 Video Overview 只是生成太久，最多等 30 分鐘後 fallback 到本地影片生成。
-
-風險 / 備註：NotebookLM 使用非官方 internal API，需要 cookie auth。正式自動化前需在該機器跑 `nlm login` 完成 Google 登入。
-
-### 本地報告 / 影片路線
-
-目前已實作：
-
-1. 以論文 metadata / abstract 產生繁體中文 Markdown 報告。
-2. 報告頂部包含類別、論文類型、來源、發表年份、作者、連結、PDF 欄位。
-3. 用 `ffmpeg` 產生 `.mp4` 影片；可選 `--enable-tts` 以 `edge-tts` 嘗試繁中旁白。
-4. 依 `paper_type` 產生不同影片腳本：review paper 10 段，一般 paper 12 段。
-5. 產生 `script.txt` 方便後續替換成更精緻的 slide / subtitle pipeline。
-
-待補強：PDF 全文解析、LaTeX 報告、字幕、多頁 slide、Manim / slide renderer。
-
-### YouTube / GitHub 發布與完整串接
-
-1. 先在清理前記錄 selected papers 的 references：
+### 4. 蒐集 references
 
 ```bash
 PYTHONPATH=src python -m paper_report.cli record-references \
   --input outputs/daily_report.json \
-  --output-dir outputs/references/$(date +%F)
+  --output-dir outputs/references/$(date +%F) \
+  --limit-per-paper 0
 ```
 
-2. 使用 OpenClaw CLI + webbridge 上傳影片到 YouTube；上傳前會要求 OpenClaw 先用 image2.0 生成適合該論文的封面圖，存成影片同資料夾的 `youtube_thumbnail.png`，並在 YouTube Studio 上傳時設定為 custom thumbnail。成功後會回寫 `manifest.json` 與 Markdown 的影片連結 / 封面路徑：
+`--limit-per-paper 0` 代表：依 Semantic Scholar pagination 抓到沒有 `next` 為止。輸出：
+
+```text
+outputs/references/YYYY-MM-DD/selected_paper_references.json
+outputs/references/YYYY-MM-DD/selected_paper_references.md
+```
+
+### 5. 上傳影片到 YouTube
 
 ```bash
 PYTHONPATH=src python -m paper_report.cli upload-videos \
   --manifest outputs/generated_reports/manifest.json \
   --privacy-status unlisted \
-  --max-workers 2
+  --max-workers 1 \
+  --timeout-seconds 5400
 ```
 
-3. 發布 Markdown 到 `openclaw572/edge-ai-papers`：
+此命令會呼叫 OpenClaw webbridge 操作 YouTube Studio：
+
+- 上傳 `manifest.json` 裡每篇 artifact 的影片。
+- 先用 image2.0 產生論文主題 thumbnail。
+- 將 thumbnail 設成 YouTube custom thumbnail。
+- Audience 選 `not made for kids`。
+- 成功後把 `youtube_url` 和 `youtube_thumbnail_path` 回寫 manifest 與 Markdown。
+
+遇到登入、2FA、頻道選擇或自訂縮圖權限問題時，OpenClaw prompt 要求停止並回報 blocker，不要假裝成功。
+
+### 6. 發布 Markdown 到 GitHub repo
 
 ```bash
 PYTHONPATH=src python -m paper_report.cli publish-github \
@@ -567,73 +360,279 @@ PYTHONPATH=src python -m paper_report.cli publish-github \
   --push
 ```
 
-`publish-github` 會保留原 repo 的靜態網站架構（`index.html`、`css/`、`js/`、`reports/`），清掉舊的 pipeline / prompt / 任務說明與 README，改寫成只描述網站更新架構，再把本 project 複製到 `project/paper_report/`。第一次正式執行時也會依此規則修改原本 repo 內容並 push。
+發布會更新：
 
-4. 一鍵完整串接：
+- `reports/YYYY-MM-DD/*.md`
+- `reports/YYYY-MM-DD/index.json`
+- `reports/index.json`
+- `project/paper_report/`
+
+### 7. 一鍵完整 pipeline
 
 ```bash
 PYTHONPATH=src python -m paper_report.cli run-full-pipeline \
   --project-dir . \
+  --profile configs/research_profile.yaml \
   --repo-url https://github.com/openclaw572/edge-ai-papers.git \
   --checkout-dir tmp/edge-ai-papers-publish \
   --push-github \
   --enable-tts
 ```
 
-只有在 YouTube 上傳全部回傳 URL 且 GitHub publish 成功時，才會刪除 `outputs/generated_reports/`；reference 紀錄會保留在 `outputs/references/YYYY-MM-DD/`。刪除本地 generated artifacts 後，會再用 Codex CLI 寄 Gmail 給 `openclaw572@gmail.com`；若 pipeline 失敗，email 內容會包含失敗原因。若 Codex / Gmail 通知本身失敗，`pipeline_status.json` 與 cron 推播會包含錯誤原因。
+測試或手動乾跑時可加：
 
-### YouTube / GitHub 發布路線
-
-已實作：
-
-- YouTube：使用 OpenClaw CLI 叫 OpenClaw 以 webbridge 操作 YouTube Studio；上傳前要求 OpenClaw 使用 image2.0 生成論文主題封面並設為 custom thumbnail；不處理 Google 密碼，遇到登入 / 2FA / 頻道確認 / 自訂縮圖不可用會回報 blocker。
-- GitHub：把 Markdown 報告 push 到指定 repo，報告頂部保留類別、來源、發表年份、作者、連結等資訊，底部補影片連結。
-- Codex Gmail：完整流程結束後使用 Codex CLI 寄送 Gmail 到 `openclaw572@gmail.com`，成功/失敗都會帶上執行摘要；若失敗會包含錯誤原因。
-- 清理：先記錄 references，再確認 YouTube / GitHub 成功，最後只刪除 generated Markdown / video artifacts。
+```bash
+--skip-email
+--no-cleanup
+```
 
 ---
 
-### Cron job
+## NotebookLM 設定
 
-已建立 Hermes cron job，名稱：`paper-report-full-pipeline-every-4-days`，排程為每 4 天執行一次。Cron 會呼叫 `~/.hermes/scripts/paper_report_full_pipeline.sh`，實際執行：
+`notebooklm-mcp-cli` / `nlm` 已安裝在 `/home/aaron/.local/bin`，Hermes MCP server `notebooklm` 已設定。正式使用前需確認 Google auth：
 
 ```bash
+nlm login
+nlm doctor
+```
+
+NotebookLM 產線做法：
+
+1. `nlm notebook create <title>` 建立 notebook。
+2. `nlm source add <notebook_id> --url <paper_pdf_or_url>` 加入 source。
+3. `nlm report create ...` 產生 Briefing Doc。
+4. `nlm video create ...` 產生 Video Overview。
+5. `nlm download ...` 下載 report / video。
+6. 若 NotebookLM 操作失敗，OpenClaw webbridge fallback 會嘗試在網頁上補救。
+7. 完整成功後，pipeline 依 manifest 裡的 `notebook_id` 刪除本次建立的 notebook。
+
+---
+
+## API rate limit / pacing
+
+### arXiv
+
+官方文件：
+
+- <https://info.arxiv.org/help/api/tou.html>
+- <https://info.arxiv.org/help/api/user-manual.html>
+
+本專案預設：
+
+```text
+ARXIV_REQUEST_INTERVAL_SECONDS = 3.0
+```
+
+### Semantic Scholar
+
+官方文件：
+
+- <https://www.semanticscholar.org/product/api>
+
+本專案採保守設定：
+
+```text
+SEMANTIC_SCHOLAR_REQUEST_INTERVAL_SECONDS = 1.0
+```
+
+可設定 API key：
+
+```bash
+export SEMANTIC_SCHOLAR_API_KEY="..."
+# 或
+export S2_API_KEY="..."
+```
+
+### OpenAlex
+
+OpenAlex 不需要 key；建議設定 mailto：
+
+```bash
+export OPENALEX_MAILTO="you@example.com"
+```
+
+### Google Scholar
+
+Google Scholar 沒有官方免費 JSON API；本專案只透過 SerpAPI：
+
+```bash
+export SERPAPI_API_KEY="..."
+# 或
+export GOOGLE_SCHOLAR_SERPAPI_KEY="..."
+```
+
+未設定 key 時，Google Scholar source 會安全回傳空候選，不讓 workflow 失敗。
+
+---
+
+## Cron job 設定
+
+目前 Hermes cron job：
+
+- Job ID：`1fd029b88f88`
+- Name：`paper-report-full-pipeline-every-4-days`
+- Schedule：`every 5760m`（每 4 天）
+- Mode：`no_agent=true`
+- Workdir：`/home/aaron/.hermes/project/paper_report`
+- Script：`paper_report_full_pipeline.sh`
+- Delivery：Discord channel `1495670834579243088`
+
+Script 位置：
+
+```text
+/home/aaron/.hermes/scripts/paper_report_full_pipeline.sh
+```
+
+內容：
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
 cd /home/aaron/.hermes/project/paper_report
 PYTHONPATH=src python scripts/run_full_pipeline.py
 ```
 
-此 job 使用 `no_agent=true`，由 script 直接輸出 `outputs/pipeline_status.json` 同等內容；若 NotebookLM / OpenClaw / GitHub / Codex Gmail 認證未完成，或 YouTube 需要人工登入，job 會失敗並保留本地 artifacts，不會清理。Cron delivery 已指定到 Discord channel `1495670834579243088`，之後此 job 的執行結果會推播到該 channel。
+Wrapper `scripts/run_full_pipeline.py` 實際呼叫：
 
-Hermes 全域 cron script timeout 已設定為 `cron.script_timeout_seconds: 10800`（3 小時），避免完整 pipeline 因 NotebookLM 影片等待、OpenClaw YouTube 上傳、GitHub push 或 Codex Gmail 通知耗時而被 120 秒預設值中斷，同時避免 8 小時 timeout 過長。
+```bash
+python -m paper_report.cli run-full-pipeline \
+  --project-dir /home/aaron/.hermes/project/paper_report \
+  --profile configs/research_profile.yaml \
+  --repo-url https://github.com/openclaw572/edge-ai-papers.git \
+  --checkout-dir tmp/edge-ai-papers-publish \
+  --push-github \
+  --enable-tts
+```
+
+可用環境變數覆寫：
+
+- `PAPER_REPORT_RUN_DATE`
+- `PAPER_REPORT_PROFILE_ID`
+- `PAPER_REPORT_NO_CLEANUP=1`
+- `PAPER_REPORT_EMAIL_RECIPIENT`
+- `PAPER_REPORT_SKIP_EMAIL=1`
+
+Hermes cron script timeout：
+
+```yaml
+cron:
+  script_timeout_seconds: 10800
+```
+
+OpenClaw agent timeout：
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "timeoutSeconds": 5400
+    }
+  }
+}
+```
+
+---
+
+## 最近 cron 失敗根因摘要
+
+已檢查最近兩次 cron output：
+
+1. 2026-05-30：Hermes cron script 120 秒 timeout。之後已把 `cron.script_timeout_seconds` 調到 10800 秒。
+2. 2026-05-31：第一篇 YouTube 上傳成功，但第二篇 OpenClaw 回 `Request timed out before a response was generated`，且本地影片過短、Markdown fallback 太短、cleanup 未執行。對應修正：
+   - 本地影片最短 540 秒。
+   - OpenClaw timeout 5400 秒。
+   - YouTube upload 預設單 worker。
+   - Markdown fallback 改為網站風格長版報告。
+   - final selection 以 title 去重。
+   - references 預設抓完整分頁。
+   - 成功後刪除 NotebookLM notebooks、generated reports/videos、daily report 中間檔。
+
+---
 
 ## 測試覆蓋
 
-目前測試包含：
+目前 regression tests 覆蓋：
 
 - arXiv Atom parser。
 - Semantic Scholar / OpenAlex / Google Scholar parser。
-- 時間窗與 fallback。
-- normalize / dedupe。
-- ranking and selection。
-- profile store 新增 / 修改 / 刪除。
-- anti-keyword-stuffing domain selection regression。
-- ordered candidate sources：arXiv → Semantic Scholar → OpenAlex → Google Scholar。
-- 外部來源失敗時繼續下一個來源。
-- 官方 rate limit constants 與 CLI 預設值。
-- 報告生成分流：`floor(n / 2)` 本地，其餘 NotebookLM。
-- 本地 Markdown / 影片輸出。
-- NotebookLM report download error → OpenClaw webbridge fallback。
+- API pacing constants 與 CLI 預設。
+- 時間窗、fallback、ordered candidate sources。
+- normalize / metadata dedupe。
+- final selected papers title-level dedupe。
+- semantic ranking 與 anti-keyword-stuffing。
+- `paper_type` 預設 review、general/any 行為、query intent。
+- 本地 Markdown 長版格式。
+- 本地影片最短 8 分鐘以上。
+- NotebookLM report download error → OpenClaw fallback。
 - NotebookLM video timeout → 本地影片 fallback。
-- 多篇論文平行處理並輸出 manifest。
-- `paper_type` 預設 review、候選 query 加 review/survey intent、每篇候選標記 review/general、quality gate / final selection 依指定類型優先。
-- Review paper 與一般 paper 的本地影片腳本結構差異。
-- OpenClaw YouTube 上傳：prompt 內容、image2.0 封面 / custom thumbnail 指示、YouTube URL 解析、manifest 與 Markdown 回寫。
-- GitHub 發布：清理舊 pipeline / prompt / 任務說明，只保留網站架構；產生每日與全域 reports index；複製 project 並排除 outputs/cache。
-- Reference 紀錄：查詢 selected papers 的 references，並在 Markdown 中標明引用來源 paper。
-- Codex Gmail 通知：使用 git workdir 呼叫 Codex CLI，prompt 包含收件人與成功/失敗原因；缺少 Codex 時回報錯誤。
+- 多篇論文平行生成與 manifest。
+- YouTube upload prompt、image2.0 thumbnail、manifest/Markdown 回寫。
+- GitHub publish、daily/global index、project copy。
+- references pagination 與 Markdown/JSON 輸出。
+- successful cleanup：NotebookLM notebooks、generated reports/videos、daily report 中間檔。
+- Codex Gmail notification prompt 與錯誤回報。
 
 執行：
 
 ```bash
+cd /home/aaron/.hermes/project/paper_report
 PYTHONPATH=src pytest -q
 ```
+
+---
+
+## Troubleshooting
+
+### `nlm` 未登入
+
+症狀：NotebookLM create/source/report/video 失敗。
+
+處理：
+
+```bash
+nlm login
+nlm doctor
+```
+
+### OpenClaw 上傳 timeout
+
+確認 `/home/aaron/.openclaw/openclaw.json`：
+
+```json
+"agents": {
+  "defaults": {
+    "timeoutSeconds": 5400
+  }
+}
+```
+
+### YouTube 需要人工登入 / 2FA / custom thumbnail 權限不足
+
+OpenClaw prompt 會要求停止並回報 blocker。這類問題不應用假 URL 或假 thumbnail path 代替。
+
+### GitHub Pages 404
+
+目前 GitHub API 顯示 repo `has_pages=false`。需要到 GitHub repo Settings → Pages 啟用後，`https://openclaw572.github.io/edge-ai-papers/` 才會成為實際網頁。
+
+### 本地 artifacts 沒有被刪除
+
+只有在 YouTube 全部成功且 GitHub publish 成功時才 cleanup。失敗時會保留 artifacts 以便除錯。成功時 `outputs/pipeline_status.json` 會列出：
+
+- `cleanup_done`
+- `cleanup_deleted_paths`
+- `cleanup_errors`
+
+### Reference 不完整
+
+確認使用：
+
+```bash
+--limit-per-paper 0
+```
+
+並檢查 `selected_paper_references.json` 裡每篇 paper 的：
+
+- `lookup_complete`
+- `total_references_recorded`
+- `error`

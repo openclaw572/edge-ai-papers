@@ -7,6 +7,7 @@ from paper_report.models import Paper, RankedPaper, SelectionResult, WindowSumma
 from paper_report.report_generation import (
     CommandResult,
     GenerationArtifact,
+    LocalReportGenerator,
     NotebookLMGenerator,
     ReportGenerationOrchestrator,
     split_generation_methods,
@@ -51,8 +52,17 @@ def test_local_generation_writes_traditional_chinese_markdown_and_video(tmp_path
     assert artifact.method == "local"
     assert artifact.markdown_path and Path(artifact.markdown_path).exists()
     assert artifact.video_path and Path(artifact.video_path).exists()
-    assert "## 論文摘要" in Path(artifact.markdown_path).read_text(encoding="utf-8")
+    markdown = Path(artifact.markdown_path).read_text(encoding="utf-8")
+    assert "## 執行摘要" in markdown
+    assert "## 核心主題分析" in markdown
+    assert "## 重要引言與背景脈絡" in markdown
     assert Path(artifact.video_path).suffix == ".mp4"
+
+
+def test_local_video_duration_defaults_to_at_least_eight_minutes(tmp_path):
+    generator = LocalReportGenerator(tmp_path)
+
+    assert generator._target_video_duration_seconds(None) >= 8 * 60
 
 
 def test_notebooklm_download_error_delegates_to_openclaw_webbridge(tmp_path):

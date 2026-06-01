@@ -17,6 +17,8 @@ Runner = Callable[[list[str], int | float | None], "CommandResult"]
 OpenClawRunner = Callable[[str, int | float | None], "CommandResult"]
 NotebookGenerator = Callable[[RankedPaper, int], "GenerationArtifact"]
 
+DEFAULT_LOCAL_VIDEO_MIN_DURATION_SECONDS = 9 * 60
+
 
 @dataclass(slots=True)
 class CommandResult:
@@ -61,6 +63,7 @@ class GenerationArtifact:
 class GenerationConfig:
     local_count_floor_half: bool = True
     notebooklm_video_wait_timeout_seconds: int = 30 * 60
+    local_video_min_duration_seconds: int = DEFAULT_LOCAL_VIDEO_MIN_DURATION_SECONDS
     max_workers: int = 4
     enable_tts: bool = False
 
@@ -68,6 +71,16 @@ class GenerationConfig:
 def slugify(value: str, fallback: str = "paper") -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", (value or "").lower()).strip("-")
     return slug[:80] or fallback
+
+
+def _split_sentences(text: str, *, max_items: int = 4) -> list[str]:
+    pieces = re.split(r"(?<=[.!?。！？])\s+", (text or "").strip())
+    return [piece.strip() for piece in pieces if piece.strip()][:max_items]
+
+
+def _drawtext_escape(text: str) -> str:
+    # ffmpeg drawtext treats ':', '\'', '\\' and '%' specially.
+    return (text or "Paper Report")[:90].replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'").replace("%", "\\%")
 
 
 def split_generation_methods(papers: list[RankedPaper]) -> list[GenerationAssignment]:
@@ -121,9 +134,16 @@ def load_selected_papers(result_json_path: str | Path) -> list[RankedPaper]:
 
 
 class LocalReportGenerator:
-    def __init__(self, output_dir: str | Path, *, enable_tts: bool = False):
+    def __init__(
+        self,
+        output_dir: str | Path,
+        *,
+        enable_tts: bool = False,
+        min_video_duration_seconds: int = DEFAULT_LOCAL_VIDEO_MIN_DURATION_SECONDS,
+    ):
         self.output_dir = Path(output_dir)
         self.enable_tts = enable_tts
+        self.min_video_duration_seconds = max(8 * 60, int(min_video_duration_seconds))
 
     def generate(self, ranked: RankedPaper, index: int) -> GenerationArtifact:
         paper = ranked.paper
@@ -151,51 +171,107 @@ class LocalReportGenerator:
         authors = ", ".join(paper.authors) if paper.authors else "未知"
         categories = ", ".join(paper.categories) if paper.categories else "未標示"
         paper_type = (paper.extra or {}).get("paper_type", "review")
-        paper_type_label = "Review paper" if paper_type == "review" else "一般 paper"
-        return f"""---
-類別: {categories}
-論文類型: {paper_type_label}
-來源: {paper.source or '未知'}
-發表年份: {paper.year}
-作者: {authors}
-連結: {paper.url or paper.pdf_url or '未提供'}
-PDF: {paper.pdf_url or '未找到'}
-生成方式: 本地方法
----
-
-# {paper.title or 'Untitled'}
-
-## 論文摘要
-
-{paper.abstract or '未提供 abstract。'}
-
-## 為什麼值得看
-
-此論文與目前研究領域的語意相關分數為 {ranked.semantic_relevance:.2f}，final score 為 {ranked.final_score:.2f}。若分數高，代表它同時具備主題相關性、近期性、全文可取得性與一定 metadata 訊號。
-
-## 主要貢獻
-
-- 探討與研究 profile 相關的核心問題。
-- 提供可進一步閱讀、摘要或實作評估的方向。
-- 可作為後續 NotebookLM / LLM 深度分析的輸入。
-
-## 方法與實驗
-
-目前 MVP 使用 metadata 與 abstract 產生初版報告；後續可串接 PDF parser 取得 introduction、method、experiment、conclusion 後補上更細的章節摘要。
-
-## 限制
-
-- 此報告尚未完整解析 PDF 全文。
-- 方法、實驗與結論段落目前主要依 abstract / metadata 推估。
-
-## 如何用在我們的專案
-
-可將此論文作為領域追蹤資料，後續若與系統架構、agent workflow、工具協調、shared workspace 或安全機制相關，可加入 seed papers 或實作 backlog。
-
-## 影片連結
-
-待上傳。
-"""
+        paper_type_label = "回顧／綜述論文" if paper_type == "review" else "一般研究論文"
+        title = paper.title or "Untitled"
+        link = paper.url or paper.pdf_url or "未提供"
+        abstract = paper.abstract or "未提供 abstract。"
+        abstract_sentences = _split_sentences(abstract, max_items=5)
+        representative_quotes = abstract_sentences[:3] or [abstract]
+        method_focus = (
+            "這是一篇 review / survey 類型論文，因此閱讀重點應放在作者如何界定研究範圍、如何建立 taxonomy、如何比較不同研究路線，以及最後整理出的挑戰與 future directions。"
+            if paper_type == "review"
+            else "這是一篇一般研究論文，因此閱讀重點應放在研究問題、核心方法、系統或模型架構、實驗設計、baseline、metrics 與主要結果。"
+        )
+        lines = [
+            f"## {title}",
+            "",
+            f"**類別：** {categories}  ",
+            f"**論文類型：** {paper_type_label}  ",
+            f"**來源：** {paper.source or '未知'}  ",
+            f"**發表年份：** {paper.year}  ",
+            f"**作者：** {authors}  ",
+            f"**連結：** {link}  ",
+            f"**PDF：** {paper.pdf_url or '未找到'}  ",
+            "**報告語言：** 繁體中文  ",
+            "**生成方式：** 本地方法（metadata + abstract-based，自動排版成網站既有報告格式）",
+            "",
+            "### 自動產生報告（本地方法）",
+            "",
+            f"# {title}",
+            "",
+            "## 執行摘要",
+            "",
+            f"本報告依據論文 metadata、abstract 與本專案的研究 profile 自動產生。`{title}` 的主題與目前追蹤方向具有明顯關聯；本次語意相關分數為 **{ranked.semantic_relevance:.2f}**，final score 為 **{ranked.final_score:.2f}**。",
+            "",
+            f"{method_focus}",
+            "",
+            "**原始摘要重點整理：**",
+        ]
+        for sentence in abstract_sentences[:4]:
+            lines.append(f"- {sentence}")
+        if not abstract_sentences:
+            lines.append("- 尚未取得可用摘要；此報告需在後續全文解析階段補強。")
+        lines.extend([
+            "",
+            "---",
+            "",
+            "## 核心主題分析",
+            "",
+            "### 1. 研究背景與問題意識",
+            "本篇論文被選入本次批次，代表它在主題相關性、時間新近性、全文可取得性或引用/metadata 訊號上通過品質門檻。從摘要可見，作者聚焦於一個正在快速成形的研究問題，並嘗試用系統化方式整理現有方法、指出缺口，或提出可評估的新架構。",
+            "",
+            "### 2. 方法、分類或系統設計",
+            "目前本地流程尚未解析 PDF 全文，因此不假裝已讀取完整方法章節；以下先根據 abstract 做保守整理。若這是 review paper，應優先檢查 taxonomy、納入/排除標準與比較表；若是一般 paper，則應優先檢查模型/系統流程、資料集、baseline 與 metrics。",
+            "",
+            "| 面向 | 本地初步判讀 | 後續全文確認重點 |",
+            "| :--- | :--- | :--- |",
+            f"| 研究類型 | {paper_type_label} | 確認 paper 是否真的符合此類型，以及是否需要改標為 general/review |",
+            f"| 主題關聯 | semantic={ranked.semantic_relevance:.2f}, final={ranked.final_score:.2f} | 檢查 introduction 與 conclusion 是否和研究 profile 的核心問題一致 |",
+            f"| 全文取得 | {'有 PDF' if paper.pdf_url else '尚未找到 PDF'} | 下載 PDF 後解析章節、圖表與 reference |",
+            "| 可行輸出 | Markdown 報告、影片腳本、YouTube 發布 | 若內容重要，加入 seed papers 或後續實作 backlog |",
+            "",
+            "### 3. 可能的貢獻",
+            "- 提供一個可快速掌握該研究方向的入口，適合納入週期性 paper monitoring。",
+            "- 若為 review paper，可用來更新技術地圖、taxonomy、關鍵挑戰與 future-work backlog。",
+            "- 若為一般 paper，可用來追蹤新方法、新 benchmark、新資料集或新系統設計。",
+            "- 可作為後續 NotebookLM / LLM 深度摘要、引用蒐集與影片講解的基礎資料。",
+            "",
+            "---",
+            "",
+            "## 重要引言與背景脈絡",
+            "",
+            "以下引用為 abstract / metadata 層級的原文節錄，用於保留可追溯依據；不是全文逐段翻譯。",
+        ])
+        for quote in representative_quotes:
+            lines.extend(["", f"> {quote}", "", "*背景：此句揭示作者在摘要中強調的研究動機、方法範圍或主要觀察。後續若能解析全文，應回到原文脈絡確認其精確含義。*"])
+        lines.extend([
+            "",
+            "---",
+            "",
+            "## 對本專案的啟發",
+            "",
+            "1. **更新研究地圖：** 將此論文的主題、分類與 reference 併入後續趨勢追蹤。",
+            "2. **補強選文 seed：** 如果全文確認與研究 profile 高度相關，可把它加入 positive seed papers，提高後續 ranking 品質。",
+            "3. **形成實作 backlog：** 若論文提出可操作的系統架構、benchmark 或安全機制，可拆成後續工程任務。",
+            "4. **對照既有報告：** 報告格式沿用網站既有輸出：標題、metadata、執行摘要、核心主題、引言脈絡、行動建議與影片連結。",
+            "",
+            "## 限制與待確認",
+            "",
+            "- 本地方法目前只保守使用 metadata 與 abstract；尚未宣稱已完整閱讀 PDF。",
+            "- 方法、實驗、圖表與 reference 的精確解讀需依後續 PDF parser / NotebookLM / 人工複核補強。",
+            "- 若外部 API 回傳 metadata 不完整，作者、年份、分類或 paper type 可能需要人工校正。",
+            "",
+            "## 後續閱讀建議",
+            "",
+            "- 先閱讀 introduction 與 conclusion，確認此論文是否真的值得納入長期追蹤。",
+            "- 對 review paper，優先擷取 taxonomy、比較表、future directions 與 reference list。",
+            "- 對一般 paper，優先擷取方法流程圖、實驗設定、主要表格與失敗案例。",
+            "",
+            "### 影片報告",
+            "- YouTube：待上傳",
+            "",
+        ])
+        return "\n".join(lines)
 
     def render_video_script(self, ranked: RankedPaper) -> str:
         paper = ranked.paper
@@ -244,39 +320,64 @@ PDF: {paper.pdf_url or '未找到'}
             if not tts.ok:
                 errors.append(f"edge-tts failed: {tts.combined_output[:300]}")
         if shutil.which("ffmpeg"):
-            title = script[:70].replace(":", "：").replace("'", "")
+            duration = self._target_video_duration_seconds(audio_path if audio_path.exists() else None)
+            title = _drawtext_escape(script.splitlines()[0] if script.strip() else "Paper Report")
             command = [
                 "ffmpeg",
                 "-y",
                 "-f",
                 "lavfi",
                 "-i",
-                "color=c=0x101827:s=1280x720:d=1",
+                f"color=c=0x101827:s=1280x720:r=1:d={duration}",
             ]
             if audio_path.exists():
-                command.extend(["-i", str(audio_path), "-shortest"])
+                command.extend(["-i", str(audio_path)])
             else:
-                command.extend(["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100:d=1", "-shortest"])
+                command.extend(["-f", "lavfi", "-i", f"anullsrc=channel_layout=stereo:sample_rate=44100:d={duration}"])
             command.extend([
                 "-t",
-                "1",
+                str(duration),
                 "-vf",
                 f"drawtext=text='{title}':fontcolor=white:fontsize=34:x=60:y=300",
+                "-r",
+                "1",
                 "-c:v",
                 "libx264",
+                "-preset",
+                "ultrafast",
+                "-tune",
+                "stillimage",
                 "-pix_fmt",
                 "yuv420p",
+            ])
+            if audio_path.exists():
+                command.extend(["-af", "apad"])
+            command.extend([
                 "-c:a",
                 "aac",
                 str(video_path),
             ])
-            result = run_command(command, timeout=30)
+            result = run_command(command, timeout=180)
             if result.ok and video_path.exists():
                 return errors
             errors.append(f"ffmpeg failed: {result.combined_output[:300]}")
         # Last resort: create an inspectable placeholder so the pipeline can continue.
         video_path.write_bytes(b"PAPER_REPORT_VIDEO_PLACEHOLDER\n" + script.encode("utf-8"))
         return errors
+
+    def _target_video_duration_seconds(self, audio_path: Path | None) -> int:
+        duration = self.min_video_duration_seconds
+        if audio_path and audio_path.exists() and shutil.which("ffprobe"):
+            probed = run_command(
+                ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(audio_path)],
+                timeout=10,
+            )
+            if probed.ok:
+                try:
+                    duration = max(duration, int(float(probed.stdout.strip())) + 2)
+                except ValueError:
+                    pass
+        return duration
 
 
 class NotebookLMGenerator:
@@ -444,10 +545,15 @@ class ReportGenerationOrchestrator:
         notebooklm_generator: NotebookGenerator | None = None,
         enable_tts: bool = False,
         video_wait_timeout_seconds: int = 30 * 60,
+        local_video_min_duration_seconds: int = DEFAULT_LOCAL_VIDEO_MIN_DURATION_SECONDS,
     ):
         self.output_dir = Path(output_dir)
         self.max_workers = max_workers
-        self.local_generator = LocalReportGenerator(output_dir, enable_tts=enable_tts)
+        self.local_generator = LocalReportGenerator(
+            output_dir,
+            enable_tts=enable_tts,
+            min_video_duration_seconds=local_video_min_duration_seconds,
+        )
         self.notebooklm_generator = notebooklm_generator or NotebookLMGenerator(
             output_dir,
             video_wait_timeout_seconds=video_wait_timeout_seconds,

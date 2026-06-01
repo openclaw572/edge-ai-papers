@@ -1,8 +1,8 @@
 from datetime import date
 
-from paper_report.models import Paper, ResearchProfile
+from paper_report.models import Paper, RankedPaper, ResearchProfile
 from paper_report.ranking import rank_papers
-from paper_report.workflow import run_with_candidates_by_window
+from paper_report.workflow import run_with_candidates_by_window, select_final_papers
 
 
 def make_profile():
@@ -105,3 +105,42 @@ def test_run_with_candidates_triggers_fallback_only_when_recent_quality_is_insuf
     assert result.window_summaries[0].qualified_count < profile.quality_threshold["min_papers_required"]
     assert any(p.paper.time_window == "fallback_4_to_12_months" for p in result.selected_papers)
     assert len(result.selected_papers) <= 3
+
+
+def test_select_final_papers_deduplicates_same_title_even_when_ids_differ():
+    profile = make_profile()
+    profile.quality_threshold["max_papers_to_output"] = 3
+    duplicate_a = RankedPaper(
+        paper=Paper(title="Shared Workspace Coordination for AI Agents", abstract="A", doi="10.1/a"),
+        semantic_relevance=0.95,
+        recency_score=1.0,
+        full_text_score=1.0,
+        citation_signal=0.1,
+        code_or_project_signal=0.0,
+        final_score=0.95,
+    )
+    duplicate_b = RankedPaper(
+        paper=Paper(title="Shared workspace coordination for AI agents!", abstract="B", arxiv_id="2601.00001"),
+        semantic_relevance=0.9,
+        recency_score=1.0,
+        full_text_score=1.0,
+        citation_signal=0.1,
+        code_or_project_signal=0.0,
+        final_score=0.9,
+    )
+    other = RankedPaper(
+        paper=Paper(title="Append-only Logs for Agent Tool Use", abstract="C"),
+        semantic_relevance=0.88,
+        recency_score=1.0,
+        full_text_score=1.0,
+        citation_signal=0.1,
+        code_or_project_signal=0.0,
+        final_score=0.88,
+    )
+
+    selected = select_final_papers(profile, [duplicate_b, other, duplicate_a])
+
+    assert [item.paper.title for item in selected] == [
+        "Shared Workspace Coordination for AI Agents",
+        "Append-only Logs for Agent Tool Use",
+    ]

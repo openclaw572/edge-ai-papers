@@ -1,6 +1,21 @@
 {
-  "lastUpdated": "2026-05-31",
+  "lastUpdated": "2026-06-01",
   "dates": [
+    {
+      "date": "2026-06-01",
+      "path": "2026-06-01/index.json",
+      "paperCount": 1,
+      "paperType": "review",
+      "papers": [
+        {
+          "title": "MCP-Atlas: A Large-Scale Benchmark for Tool-Use Competency with Real MCP Servers",
+          "tags": [
+            "Benchmark (surveying), Computer science, Task (project management), Server, Rubric, Context (archaeology), Protocol (science), Machine learning, Task analysis, Artificial intelligence, Data mining, Scheme (mathematics), Interface (matter), Software engineering, Data modeling, User interface, Flagging, Natural language, Context model",
+            "REVIEW PAPER"
+          ]
+        }
+      ]
+    },
     {
       "date": "2026-05-31",
       "path": "2026-05-31/index.json",

@@ -14,6 +14,7 @@ from .report_generation import ranked_paper_from_dict
 from .semantic_scholar import PAPER_API, semantic_scholar_headers
 
 REFERENCE_FIELDS = "contexts,intents,isInfluential,citedPaper.paperId,citedPaper.title,citedPaper.authors,citedPaper.year,citedPaper.url,citedPaper.externalIds"
+REFERENCE_PAGE_SIZE = 100
 
 
 @dataclass(slots=True)
@@ -39,6 +40,8 @@ class PaperReferences:
     citing_paper_url: str = ""
     citing_paper_id: str = ""
     references: list[ReferenceItem] = field(default_factory=list)
+    lookup_complete: bool = False
+    total_references_recorded: int = 0
     error: str = ""
 
     def to_dict(self) -> dict:
@@ -47,6 +50,8 @@ class PaperReferences:
             "citing_paper_url": self.citing_paper_url,
             "citing_paper_id": self.citing_paper_id,
             "references": [item.to_dict() for item in self.references],
+            "lookup_complete": self.lookup_complete,
+            "total_references_recorded": self.total_references_recorded or len(self.references),
             "error": self.error,
         }
 
@@ -93,7 +98,7 @@ def _reference_from_s2(item: dict[str, Any]) -> ReferenceItem | None:
 def fetch_references_for_paper(
     paper: Paper,
     *,
-    limit: int = 50,
+    limit: int = 0,
     session: requests.Session | None = None,
     sleep_seconds: float = 1.0,
 ) -> PaperReferences:
@@ -107,26 +112,50 @@ def fetch_references_for_paper(
         result.error = "No Semantic Scholar / DOI / arXiv identifier available for reference lookup"
         return result
     http = session or requests.Session()
+    max_references = limit if limit and limit > 0 else None
+    offset = 0
+    refs: list[ReferenceItem] = []
     try:
-        response = http.get(
-            f"{PAPER_API}/{identifier}/references",
-            params={"fields": REFERENCE_FIELDS, "limit": limit},
-            headers=semantic_scholar_headers(),
-            timeout=30,
-        )
-        if response.status_code == 404:
-            result.error = "Semantic Scholar references endpoint returned 404"
-            return result
-        response.raise_for_status()
-        data = response.json()
-        refs: list[ReferenceItem] = []
-        for item in data.get("data") or []:
-            ref = _reference_from_s2(item)
-            if ref:
-                refs.append(ref)
+        while True:
+            page_limit = REFERENCE_PAGE_SIZE
+            if max_references is not None:
+                remaining = max_references - len(refs)
+                if remaining <= 0:
+                    result.error = f"Stopped after configured limit_per_paper={max_references}; set limit_per_paper=0 to record all available references"
+                    break
+                page_limit = min(page_limit, remaining)
+            response = http.get(
+                f"{PAPER_API}/{identifier}/references",
+                params={"fields": REFERENCE_FIELDS, "limit": page_limit, "offset": offset},
+                headers=semantic_scholar_headers(),
+                timeout=30,
+            )
+            if response.status_code == 404:
+                result.error = "Semantic Scholar references endpoint returned 404"
+                return result
+            response.raise_for_status()
+            data = response.json()
+            page = data.get("data") or []
+            for item in page:
+                ref = _reference_from_s2(item)
+                if ref:
+                    refs.append(ref)
+            next_offset = data.get("next")
+            if next_offset is None:
+                result.lookup_complete = True
+                break
+            if not page:
+                result.lookup_complete = True
+                break
+            offset = int(next_offset)
+            if sleep_seconds:
+                time.sleep(sleep_seconds)
         result.references = refs
+        result.total_references_recorded = len(refs)
     except requests.RequestException as exc:
         result.error = str(exc)
+    except (TypeError, ValueError) as exc:
+        result.error = f"Invalid Semantic Scholar pagination response: {exc}"
     if sleep_seconds:
         time.sleep(sleep_seconds)
     return result
@@ -136,7 +165,7 @@ def record_references(
     selection_json_path: str | Path,
     output_dir: str | Path,
     *,
-    limit_per_paper: int = 50,
+    limit_per_paper: int = 0,
     session: requests.Session | None = None,
     sleep_seconds: float = 1.0,
 ) -> tuple[Path, Path]:
@@ -171,6 +200,8 @@ def render_references_markdown(payload: dict[str, Any]) -> str:
         lines.append(f"## Citing paper: {paper.get('citing_paper_title') or 'Untitled'}")
         if paper.get("citing_paper_url"):
             lines.append(f"- Citing paper URL: {paper['citing_paper_url']}")
+        lines.append(f"- References recorded: {paper.get('total_references_recorded', len(paper.get('references') or []))}")
+        lines.append(f"- Lookup complete: {paper.get('lookup_complete', False)}")
         if paper.get("error"):
             lines.append(f"- Reference lookup note: {paper['error']}")
         refs = paper.get("references") or []

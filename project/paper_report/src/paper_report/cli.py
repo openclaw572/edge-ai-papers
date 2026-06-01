@@ -121,6 +121,7 @@ def cmd_generate_reports(args: argparse.Namespace) -> int:
         max_workers=args.max_workers,
         enable_tts=args.enable_tts,
         video_wait_timeout_seconds=args.video_wait_timeout_seconds,
+        local_video_min_duration_seconds=args.local_video_min_duration_seconds,
     )
     artifacts = orchestrator.generate_for_papers(papers)
     print(f"generated artifacts: {len(artifacts)}")
@@ -223,21 +224,22 @@ def build_parser() -> argparse.ArgumentParser:
     generate.add_argument("--output-dir", default="outputs/generated_reports", help="報告與影片輸出目錄")
     generate.add_argument("--max-workers", type=int, default=4, help="平行處理 worker 數")
     generate.add_argument("--video-wait-timeout-seconds", type=int, default=30 * 60, help="NotebookLM video overview 最多等待秒數；預設 30 分鐘")
+    generate.add_argument("--local-video-min-duration-seconds", type=int, default=9 * 60, help="本地方法產生影片的最短秒數；預設 9 分鐘，符合 8–10 分鐘需求")
     generate.add_argument("--enable-tts", action="store_true", help="本地影片嘗試使用 edge-tts 產生繁中旁白；失敗則 fallback 靜音音軌")
     generate.set_defaults(func=cmd_generate_reports)
 
     refs = sub.add_parser("record-references", help="在清理本地報告/影片前，記錄本次 selected papers 引用的 references")
     refs.add_argument("--input", default="outputs/daily_report.json", help="hunt 產生的 JSON 結果")
     refs.add_argument("--output-dir", default="outputs/references/latest")
-    refs.add_argument("--limit-per-paper", type=int, default=50)
+    refs.add_argument("--limit-per-paper", type=int, default=0, help="每篇最多記錄幾筆 references；0 代表依 Semantic Scholar 分頁抓到沒有 next 為止")
     refs.add_argument("--semantic-sleep-seconds", type=float, default=SEMANTIC_SCHOLAR_REQUEST_INTERVAL_SECONDS)
     refs.set_defaults(func=cmd_record_references)
 
     upload = sub.add_parser("upload-videos", help="用 OpenClaw CLI + webbridge 上傳 generated manifest 內的影片到 YouTube")
     upload.add_argument("--manifest", default="outputs/generated_reports/manifest.json")
     upload.add_argument("--privacy-status", default="unlisted", choices=["public", "unlisted", "private"])
-    upload.add_argument("--max-workers", type=int, default=2, help="平行上傳 worker 數；避免同一瀏覽器互搶，預設 2")
-    upload.add_argument("--timeout-seconds", type=int, default=3600)
+    upload.add_argument("--max-workers", type=int, default=1, help="平行上傳 worker 數；YouTube Studio / browser 操作預設單工較穩定")
+    upload.add_argument("--timeout-seconds", type=int, default=5400)
     upload.set_defaults(func=cmd_upload_videos)
 
     publish = sub.add_parser("publish-github", help="清理目標 repo 的非網站產線說明，加入本 project，並把報告發布到 reports/")
@@ -259,7 +261,7 @@ def build_parser() -> argparse.ArgumentParser:
     full.add_argument("--checkout-dir", default="tmp/edge-ai-papers-publish")
     full.add_argument("--run-date")
     full.add_argument("--max-workers", type=int, default=4)
-    full.add_argument("--youtube-workers", type=int, default=2)
+    full.add_argument("--youtube-workers", type=int, default=1)
     full.add_argument("--push-github", action="store_true")
     full.add_argument("--no-cleanup", action="store_true", help="即使遠端發布成功也保留本地 generated reports/videos")
     full.add_argument("--enable-tts", action="store_true")

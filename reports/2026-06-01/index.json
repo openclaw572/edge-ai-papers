@@ -1,0 +1,19 @@
+{
+  "date": "2026-06-01",
+  "paperCount": 1,
+  "paperType": "review",
+  "papers": [
+    {
+      "id": "paper-1",
+      "category": "Benchmark (surveying), Computer science, Task (project management), Server, Rubric, Context (archaeology), Protocol (science), Machine learning, Task analysis, Artificial intelligence, Data mining, Scheme (mathematics), Interface (matter), Software engineering, Data modeling, User interface, Flagging, Natural language, Context model",
+      "title": "MCP-Atlas: A Large-Scale Benchmark for Tool-Use Competency with Real MCP Servers",
+      "path": "paper-1-mcp-atlas-a-large-scale-benchmark-for-tool-use-competency-with-real-mcp-servers.md",
+      "link": "https://arxiv.org/pdf/2602.00933",
+      "type": "REVIEW PAPER",
+      "paperType": "review",
+      "youtubeUrl": ""
+    }
+  ],
+  "notebookLM": {},
+  "generatedAt": "2026-06-01T06:26:11.026291+00:00"
+}

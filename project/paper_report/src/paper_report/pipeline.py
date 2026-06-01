@@ -26,6 +26,8 @@ class FullPipelineResult:
     github_publish: dict | None = None
     email_notification: dict | None = None
     cleanup_done: bool = False
+    cleanup_deleted_paths: list[str] | None = None
+    cleanup_errors: list[str] | None = None
     error: str = ""
 
     def to_dict(self) -> dict:
@@ -33,6 +35,8 @@ class FullPipelineResult:
         data["youtube_uploads"] = self.youtube_uploads or []
         data["github_publish"] = self.github_publish or {}
         data["email_notification"] = self.email_notification or {}
+        data["cleanup_deleted_paths"] = self.cleanup_deleted_paths or []
+        data["cleanup_errors"] = self.cleanup_errors or []
         return data
 
 
@@ -47,7 +51,7 @@ class FullPipelineRunner:
         repo_checkout_dir: str | Path = "tmp/edge-ai-papers-publish",
         run_date: str | None = None,
         max_workers: int = 4,
-        youtube_workers: int = 2,
+        youtube_workers: int = 1,
         push_github: bool = True,
         cleanup: bool = True,
         enable_tts: bool = False,
@@ -106,9 +110,11 @@ class FullPipelineRunner:
             all_youtube_ok = all(item.ok for item in youtube_results)
             ok = all_youtube_ok and github_result.ok
             cleanup_done = False
+            cleanup_deleted_paths: list[str] = []
+            cleanup_errors: list[str] = []
             if ok and self.cleanup:
-                self._cleanup_generated(generated_dir)
-                cleanup_done = True
+                cleanup_deleted_paths, cleanup_errors = self._cleanup_after_success(manifest, generated_dir, daily_md, daily_json)
+                cleanup_done = not cleanup_errors
             result = FullPipelineResult(
                 ok=ok,
                 hunt_json=str(daily_json),
@@ -118,6 +124,8 @@ class FullPipelineRunner:
                 youtube_uploads=[item.to_dict() for item in youtube_results],
                 github_publish=github_result.to_dict(),
                 cleanup_done=cleanup_done,
+                cleanup_deleted_paths=cleanup_deleted_paths,
+                cleanup_errors=cleanup_errors,
                 error="" if ok else "YouTube upload or GitHub publish did not fully succeed; local artifacts were preserved.",
             )
         except Exception as exc:  # noqa: BLE001 - status file should capture operational failures.
@@ -158,7 +166,59 @@ class FullPipelineRunner:
         if completed.returncode != 0:
             raise RuntimeError(f"command failed: {' '.join(command)}\nSTDOUT:\n{completed.stdout}\nSTDERR:\n{completed.stderr}")
 
-    @staticmethod
-    def _cleanup_generated(generated_dir: Path) -> None:
-        if generated_dir.exists():
-            shutil.rmtree(generated_dir)
+    def _cleanup_after_success(self, manifest: Path, generated_dir: Path, daily_md: Path, daily_json: Path) -> tuple[list[str], list[str]]:
+        """Delete external NotebookLM notebooks and local transient artifacts after publish/upload success."""
+        deleted: list[str] = []
+        errors: list[str] = []
+        deleted.extend(self._cleanup_notebooklm_notebooks(manifest, errors))
+        for path in (generated_dir, daily_md, daily_json):
+            try:
+                if path.is_dir():
+                    shutil.rmtree(path)
+                    deleted.append(str(path))
+                elif path.exists():
+                    path.unlink()
+                    deleted.append(str(path))
+            except OSError as exc:
+                errors.append(f"Failed to delete {path}: {exc}")
+        return deleted, errors
+
+    def _cleanup_notebooklm_notebooks(self, manifest: Path, errors: list[str]) -> list[str]:
+        if not manifest.exists():
+            return []
+        try:
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(f"Failed to read manifest for NotebookLM cleanup: {exc}")
+            return []
+        notebook_ids = sorted({str(item.get("notebook_id") or "").strip() for item in data.get("artifacts") or [] if item.get("notebook_id")})
+        deleted: list[str] = []
+        for notebook_id in notebook_ids:
+            if self._delete_notebooklm_notebook(notebook_id, errors):
+                deleted.append(f"notebooklm:{notebook_id}")
+        return deleted
+
+    def _delete_notebooklm_notebook(self, notebook_id: str, errors: list[str]) -> bool:
+        commands = [
+            ["nlm", "notebook", "delete", notebook_id, "--confirm"],
+            ["nlm", "notebook", "delete", notebook_id, "-y"],
+        ]
+        last_output = ""
+        for command in commands:
+            try:
+                completed = subprocess.run(
+                    command,
+                    cwd=self.project_dir,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=120,
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                last_output = str(exc)
+                continue
+            if completed.returncode == 0:
+                return True
+            last_output = (completed.stdout + completed.stderr).strip()
+        errors.append(f"Failed to delete NotebookLM notebook {notebook_id}: {last_output[:300]}")
+        return False

@@ -34,9 +34,11 @@ class FakeResponse:
 class FakeSession:
     def __init__(self):
         self.urls = []
+        self.params = []
 
     def get(self, url, **kwargs):
         self.urls.append(url)
+        self.params.append(kwargs.get("params") or {})
         return FakeResponse()
 
 
@@ -80,4 +82,59 @@ def test_record_references_writes_json_and_markdown(tmp_path):
     assert md_path.exists()
     md = md_path.read_text(encoding="utf-8")
     assert "Citing paper: Citing Paper" in md
+    assert "References recorded: 1" in md
+    assert "Lookup complete: True" in md
     assert "Shared Workspace Agents" in md
+
+
+class PaginatedResponse:
+    status_code = 200
+
+    def __init__(self, payload):
+        self.payload = payload
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self.payload
+
+
+class PaginatedSession:
+    def __init__(self):
+        self.params = []
+
+    def get(self, url, **kwargs):
+        params = kwargs.get("params") or {}
+        self.params.append(params)
+        offset = params.get("offset", 0)
+        title = "Reference A" if offset == 0 else "Reference B"
+        payload = {
+            "data": [
+                {
+                    "citedPaper": {
+                        "paperId": f"ref-{offset}",
+                        "title": title,
+                        "authors": [],
+                        "year": 2026,
+                        "url": "",
+                        "externalIds": {},
+                    }
+                }
+            ]
+        }
+        if offset == 0:
+            payload["next"] = 100
+        return PaginatedResponse(payload)
+
+
+def test_fetch_references_follows_semantic_scholar_pagination_until_complete():
+    from paper_report.models import Paper
+
+    session = PaginatedSession()
+    result = fetch_references_for_paper(Paper(title="Citing Paper", semantic_scholar_id="abc"), session=session, sleep_seconds=0)
+
+    assert [ref.title for ref in result.references] == ["Reference A", "Reference B"]
+    assert result.lookup_complete is True
+    assert result.total_references_recorded == 2
+    assert [params["offset"] for params in session.params] == [0, 100]

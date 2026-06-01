@@ -84,8 +84,8 @@ class OpenClawYouTubeUploader:
         *,
         runner: OpenClawRunner = run_openclaw_webbridge,
         privacy_status: str = "unlisted",
-        max_workers: int = 2,
-        timeout_seconds: int = 3600,
+        max_workers: int = 1,
+        timeout_seconds: int = 5400,
     ):
         self.runner = runner
         self.privacy_status = privacy_status
